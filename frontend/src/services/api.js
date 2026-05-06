@@ -1,14 +1,7 @@
 import axios from 'axios';
 
-// Usa variável de ambiente (produção correta)
-const BASE_URL = import.meta.env.VITE_API_URL;
-
-// Segurança: avisa se não estiver configurado
-if (!BASE_URL) {
-  throw new Error(
-    "VITE_API_URL não definida. Configure no .env antes de buildar."
-  );
-}
+// 🔥 FORÇA URL CORRETA
+const BASE_URL = "https://agente-backend.amxxqr.easypanel.host/api";
 
 const api = axios.create({
   baseURL: BASE_URL,
@@ -16,7 +9,7 @@ const api = axios.create({
   headers: { 'Content-Type': 'application/json' },
 });
 
-// Log de erros centralizado
+// Log de erros
 api.interceptors.response.use(
   (response) => response,
   (error) => {
@@ -28,7 +21,7 @@ api.interceptors.response.use(
   }
 );
 
-// Rotas (já compatíveis com /api no baseURL)
+// Rotas
 export const fetchMetrics = () => api.get('/metrics').then((r) => r.data);
 export const fetchClients = () => api.get('/clients').then((r) => r.data);
 export const fetchAppointments = () => api.get('/appointments').then((r) => r.data);
