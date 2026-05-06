@@ -1,12 +1,17 @@
 import axios from 'axios';
 
-const BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:3000/api';
+const BASE_URL = import.meta.env.VITE_API_URL;
+
+if (!BASE_URL) {
+  console.error('[API] VITE_API_URL não está definida. Defina-a no .env antes do build.');
+}
 
 const api = axios.create({
   baseURL: BASE_URL,
   timeout: 10000,
   headers: { 'Content-Type': 'application/json' },
 });
+
 
 // Log de erros centralizado
 api.interceptors.response.use(

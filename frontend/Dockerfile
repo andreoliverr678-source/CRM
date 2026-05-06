@@ -1,5 +1,5 @@
 # Build stage
-FROM node:20-alpine as build
+FROM node:20-alpine AS build
 
 WORKDIR /app
 
@@ -7,6 +7,10 @@ COPY package*.json ./
 RUN npm install
 
 COPY . .
+
+# Accept build-time variable (required for Vite to embed it in the bundle)
+ARG VITE_API_URL
+ENV VITE_API_URL=$VITE_API_URL
 
 RUN npm run build
 

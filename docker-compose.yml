@@ -14,9 +14,13 @@ services:
     restart: always
 
   frontend:
-    build: ./frontend
+    build:
+      context: ./frontend
+      args:
+        VITE_API_URL: https://agente-backend.amxxqr.easypanel.host/api
     ports:
       - "80:80"
     depends_on:
       - backend
     restart: always
+
