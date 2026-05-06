@@ -1,9 +1,9 @@
 import React, { useState, useMemo } from 'react';
-import { Plus, Search, Phone, Clock, MoreVertical, AlertCircle, RefreshCw, UserX } from 'lucide-react';
+import { Plus, Search, Phone, Clock, MoreVertical, AlertCircle, RefreshCw, UserX, ChevronRight } from 'lucide-react';
 import useApi from '../hooks/useApi';
 import { fetchClients } from '../services/api';
 
-// ------- Skeleton Row -------
+// ------- Skeleton Row (desktop) -------
 const SkeletonRow = () => (
   <tr className="animate-pulse">
     <td className="px-6 py-4">
@@ -18,12 +18,24 @@ const SkeletonRow = () => (
   </tr>
 );
 
+// ------- Skeleton Card (mobile) -------
+const SkeletonCard = () => (
+  <div className="glass-panel rounded-2xl p-4 flex items-center gap-4 animate-pulse">
+    <div className="w-11 h-11 rounded-full bg-dark-200 dark:bg-dark-700 shrink-0" />
+    <div className="flex-1 space-y-2">
+      <div className="h-4 w-28 rounded bg-dark-200 dark:bg-dark-700" />
+      <div className="h-3 w-24 rounded bg-dark-200 dark:bg-dark-700" />
+    </div>
+    <div className="h-5 w-16 rounded-full bg-dark-200 dark:bg-dark-700" />
+  </div>
+);
+
 // ------- Status Badge -------
 const StatusBadge = ({ status }) => {
   const map = {
-    cliente:   'bg-emerald-100 text-emerald-700 dark:bg-emerald-500/20 dark:text-emerald-400',
-    lead:      'bg-blue-100 text-blue-700 dark:bg-blue-500/20 dark:text-blue-400',
-    agendado:  'bg-purple-100 text-purple-700 dark:bg-purple-500/20 dark:text-purple-400',
+    cliente:  'bg-emerald-100 text-emerald-700 dark:bg-emerald-500/20 dark:text-emerald-400',
+    lead:     'bg-blue-100 text-blue-700 dark:bg-blue-500/20 dark:text-blue-400',
+    agendado: 'bg-purple-100 text-purple-700 dark:bg-purple-500/20 dark:text-purple-400',
   };
   const label = { cliente: 'Cliente', lead: 'Lead', agendado: 'Agendado' };
   if (!status) return null;
@@ -38,7 +50,6 @@ const StatusBadge = ({ status }) => {
 const Clients = () => {
   const [search, setSearch] = useState('');
 
-  // Polling a cada 60 segundos
   const { data: clients, loading, error, refetch } = useApi(fetchClients, { interval: 60_000 });
 
   const filtered = useMemo(() => {
@@ -51,7 +62,6 @@ const Clients = () => {
     );
   }, [clients, search]);
 
-  // Formata data relativa simples
   const formatDate = (dateStr) => {
     if (!dateStr) return '—';
     try {
@@ -61,14 +71,17 @@ const Clients = () => {
     }
   };
 
+  const getInitial = (client) =>
+    (client.nome || client.telefone || '?').charAt(0).toUpperCase();
+
   return (
-    <div className="space-y-6 animate-fade-in">
+    <div className="space-y-4 md:space-y-6 animate-fade-in pb-24 md:pb-0">
       {/* Header */}
-      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+      <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-3xl font-bold text-dark-900 dark:text-white mb-2">Clientes</h1>
-          <p className="text-dark-500 dark:text-dark-400">
-            Gestão de carteira de clientes.{' '}
+          <h1 className="text-2xl md:text-3xl font-bold text-dark-900 dark:text-white mb-1">Clientes</h1>
+          <p className="text-sm text-dark-500 dark:text-dark-400 hidden sm:block">
+            Gestão de carteira.{' '}
             {!loading && clients && (
               <span className="font-medium text-dark-700 dark:text-dark-300">{clients.length} cadastrados</span>
             )}
@@ -78,12 +91,13 @@ const Clients = () => {
           <button
             onClick={refetch}
             title="Atualizar lista"
-            className="p-2.5 rounded-xl text-dark-400 hover:text-dark-900 dark:hover:text-white hover:bg-dark-100 dark:hover:bg-dark-800 transition-all"
+            className="p-2.5 rounded-xl text-dark-400 hover:text-dark-900 dark:hover:text-white hover:bg-dark-100 dark:hover:bg-dark-800 transition-all active:scale-90"
           >
-            <RefreshCw size={18} />
+            <RefreshCw size={16} />
           </button>
-          <button className="flex items-center gap-2 bg-primary-600 hover:bg-primary-700 text-white px-5 py-2.5 rounded-xl transition-all shadow-lg shadow-primary-500/30">
-            <Plus size={20} />
+          {/* Botão "Novo" — só desktop */}
+          <button className="hidden md:flex items-center gap-2 bg-primary-600 hover:bg-primary-700 text-white px-5 py-2.5 rounded-xl transition-all shadow-lg shadow-primary-500/30">
+            <Plus size={18} />
             <span>Novo Cliente</span>
           </button>
         </div>
@@ -91,16 +105,71 @@ const Clients = () => {
 
       {/* Error Banner */}
       {error && (
-        <div className="flex items-center gap-3 p-4 rounded-xl bg-red-50 dark:bg-red-500/10 border border-red-200 dark:border-red-800 text-red-700 dark:text-red-400">
-          <AlertCircle size={18} className="shrink-0" />
-          <span className="text-sm">Erro ao carregar clientes: {error}</span>
+        <div className="flex items-center gap-3 p-3 md:p-4 rounded-xl bg-red-50 dark:bg-red-500/10 border border-red-200 dark:border-red-800 text-red-700 dark:text-red-400">
+          <AlertCircle size={16} className="shrink-0" />
+          <span className="text-xs md:text-sm">Erro ao carregar clientes: {error}</span>
         </div>
       )}
 
-      {/* Table */}
-      <div className="glass-panel rounded-2xl overflow-hidden">
-        {/* Search */}
-        <div className="p-6 border-b border-dark-200 dark:border-dark-800 bg-white/50 dark:bg-dark-900/50">
+      {/* Campo de Busca — sticky no topo em mobile */}
+      <div className="sticky top-14 md:top-20 z-20 bg-dark-50/95 dark:bg-dark-950/95 backdrop-blur-sm py-2 -mx-4 px-4 md:mx-0 md:px-0 md:static md:bg-transparent md:backdrop-blur-none md:py-0">
+        <div className="relative">
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-dark-400" size={16} />
+          <input
+            type="text"
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            placeholder="Buscar por nome ou telefone..."
+            className="w-full bg-white dark:bg-dark-800 border border-dark-200 dark:border-dark-700 rounded-xl py-2.5 pl-9 pr-4 text-sm focus:ring-2 focus:ring-primary-500 text-dark-900 dark:text-dark-100 placeholder-dark-400"
+          />
+        </div>
+      </div>
+
+      {/* ===== MOBILE: Lista de Cards ===== */}
+      <div className="md:hidden space-y-3">
+        {loading ? (
+          Array.from({ length: 4 }).map((_, i) => <SkeletonCard key={i} />)
+        ) : filtered.length === 0 ? (
+          <div className="glass-panel rounded-2xl py-16 flex flex-col items-center gap-3 text-dark-400">
+            <UserX size={28} />
+            <span className="text-sm text-center px-6">
+              {search ? 'Nenhum cliente encontrado para essa busca.' : 'Nenhum cliente cadastrado ainda.'}
+            </span>
+          </div>
+        ) : (
+          filtered.map((client) => (
+            <div
+              key={client.id}
+              className="glass-panel rounded-2xl p-4 flex items-center gap-4 active:scale-[0.98] transition-transform cursor-pointer"
+            >
+              {/* Avatar */}
+              <div className="w-11 h-11 rounded-full bg-gradient-to-br from-primary-400 to-primary-600 flex items-center justify-center text-white font-bold shadow-md shadow-primary-500/20 shrink-0">
+                {getInitial(client)}
+              </div>
+              {/* Info */}
+              <div className="flex-1 min-w-0">
+                <p className="font-semibold text-dark-900 dark:text-white text-sm truncate">
+                  {client.nome || <span className="text-dark-400 italic">Sem nome</span>}
+                </p>
+                <div className="flex items-center gap-1 mt-0.5">
+                  <Phone size={12} className="text-dark-400 shrink-0" />
+                  <span className="text-xs text-dark-500 dark:text-dark-400 truncate">{client.telefone || '—'}</span>
+                </div>
+              </div>
+              {/* Status + seta */}
+              <div className="flex flex-col items-end gap-2 shrink-0">
+                <StatusBadge status={client.status} />
+                <ChevronRight size={14} className="text-dark-300 dark:text-dark-600" />
+              </div>
+            </div>
+          ))
+        )}
+      </div>
+
+      {/* ===== DESKTOP: Tabela ===== */}
+      <div className="hidden md:block glass-panel rounded-2xl overflow-hidden">
+        {/* Search toolbar desktop */}
+        <div className="p-6 border-b border-dark-200 dark:border-dark-800 bg-white/50 dark:bg-dark-900/50 flex items-center justify-between gap-4">
           <div className="relative w-full max-w-md">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-dark-400" size={18} />
             <input
@@ -111,6 +180,9 @@ const Clients = () => {
               className="w-full bg-white dark:bg-dark-800 border border-dark-200 dark:border-dark-700 rounded-xl py-2 pl-10 pr-4 text-sm focus:ring-2 focus:ring-primary-500 text-dark-900 dark:text-dark-100 placeholder-dark-400"
             />
           </div>
+          {!loading && clients && (
+            <span className="text-sm text-dark-500 dark:text-dark-400 shrink-0">{clients.length} clientes</span>
+          )}
         </div>
 
         <div className="overflow-x-auto">
@@ -144,7 +216,7 @@ const Clients = () => {
                     <td className="px-6 py-4">
                       <div className="flex items-center gap-3">
                         <div className="w-10 h-10 rounded-full bg-gradient-to-br from-primary-400 to-primary-600 flex items-center justify-center text-white font-bold shadow-md shadow-primary-500/20 shrink-0">
-                          {(client.nome || client.telefone || '?').charAt(0).toUpperCase()}
+                          {getInitial(client)}
                         </div>
                         <span className="font-medium text-dark-900 dark:text-white">
                           {client.nome || <span className="text-dark-400 italic">Sem nome</span>}
@@ -178,6 +250,14 @@ const Clients = () => {
           </table>
         </div>
       </div>
+
+      {/* ===== FAB — Novo Cliente (mobile) ===== */}
+      <button
+        className="md:hidden fixed bottom-6 right-6 z-40 w-14 h-14 bg-primary-600 hover:bg-primary-700 text-white rounded-full shadow-xl shadow-primary-500/40 flex items-center justify-center transition-all active:scale-90"
+        aria-label="Novo cliente"
+      >
+        <Plus size={24} />
+      </button>
     </div>
   );
 };
