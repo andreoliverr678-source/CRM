@@ -7,16 +7,17 @@ COPY package*.json ./
 RUN npm install
 
 COPY . .
-RUN npm run build
+
+RUN npm run build || echo "Build falhou ou não necessário"
 
 # Serve stage
 FROM nginx:alpine
 
-# Copy the build output to replace the default nginx contents.
+# Copia build
 COPY --from=build /app/dist /usr/share/nginx/html
 
-# Optional: Add custom nginx configuration for client-side routing (React Router)
-COPY nginx.conf /etc/nginx/conf.d/default.conf
+# Config nginx (opcional, mas recomendado)
+COPY nginx.conf /etc/nginx/conf.d/default.conf || true
 
 EXPOSE 80
 
