@@ -8,8 +8,9 @@ RUN npm install
 
 COPY . .
 
-# Accept build-time variable (required for Vite to embed it in the bundle)
-ARG VITE_API_URL
+# Embed the API URL at build time (Vite bakes this into the static bundle)
+# Default value ensures EasyPanel/CI builds work without --build-arg
+ARG VITE_API_URL=https://agente-backend.amxxqr.easypanel.host/api
 ENV VITE_API_URL=$VITE_API_URL
 
 RUN npm run build
