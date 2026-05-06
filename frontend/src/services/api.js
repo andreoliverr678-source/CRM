@@ -1,7 +1,14 @@
 import axios from 'axios';
 
-// 🔥 URL fixa para garantir funcionamento em produção
-const BASE_URL = "https://agente-backend.amxxqr.easypanel.host/api";
+// Usa variável de ambiente (produção correta)
+const BASE_URL = import.meta.env.VITE_API_URL;
+
+// Segurança: avisa se não estiver configurado
+if (!BASE_URL) {
+  throw new Error(
+    "VITE_API_URL não definida. Configure no .env antes de buildar."
+  );
+}
 
 const api = axios.create({
   baseURL: BASE_URL,
@@ -14,12 +21,14 @@ api.interceptors.response.use(
   (response) => response,
   (error) => {
     const msg = error.response?.data?.error || error.message;
-    console.error(`[API Error] ${error.config?.baseURL}${error.config?.url}: ${msg}`);
+    console.error(
+      `[API Error] ${error.config?.baseURL}${error.config?.url}: ${msg}`
+    );
     return Promise.reject(error);
   }
 );
 
-// Rotas
+// Rotas (já compatíveis com /api no baseURL)
 export const fetchMetrics = () => api.get('/metrics').then((r) => r.data);
 export const fetchClients = () => api.get('/clients').then((r) => r.data);
 export const fetchAppointments = () => api.get('/appointments').then((r) => r.data);
