@@ -40,7 +40,7 @@ app.use((err, req, res, next) => {
   res.status(500).json({ error: 'Erro interno do servidor' });
 });
 
-app.listen(port, () => {
+app.listen(port, '0.0.0.0', () => {
   console.log(`✅ Servidor rodando na porta ${port}`);
   console.log(`🔗 Supabase URL: ${process.env.SUPABASE_URL}`);
 });
