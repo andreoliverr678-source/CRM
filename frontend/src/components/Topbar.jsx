@@ -1,7 +1,9 @@
 import React from 'react';
-import { Bell, Sun, Moon, Menu } from 'lucide-react';
+import { Sun, Moon, Menu } from 'lucide-react';
 import { useTheme } from '../context/ThemeContext';
 import { useLocation } from 'react-router-dom';
+import NotificationsDropdown from './NotificationsDropdown';
+import ProfileDropdown from './ProfileDropdown';
 
 // Mapa de rotas para títulos legíveis
 const PAGE_TITLES = {
@@ -62,28 +64,18 @@ const Topbar = ({ onMenuClick }) => {
           {isDarkMode ? <Sun size={18} /> : <Moon size={18} />}
         </button>
 
-        {/* Notificações */}
-        <button className="relative w-9 h-9 md:w-10 md:h-10 flex items-center justify-center rounded-full text-dark-500 hover:bg-dark-100 dark:text-dark-400 dark:hover:bg-dark-800 transition-colors">
-          <Bell size={18} />
-          <span className="absolute top-1.5 right-1.5 w-2 h-2 bg-red-500 rounded-full border-2 border-white dark:border-dark-900" />
-        </button>
+        {/* Notificações — REAL */}
+        <NotificationsDropdown />
 
         {/* Separador — só desktop */}
         <div className="hidden md:block h-8 w-px bg-dark-200 dark:bg-dark-700" />
 
-        {/* Avatar */}
-        <div className="flex items-center gap-3 cursor-pointer">
-          <div className="w-8 h-8 md:w-10 md:h-10 rounded-full bg-primary-100 dark:bg-primary-900/50 text-primary-600 dark:text-primary-400 flex items-center justify-center font-bold border border-primary-200 dark:border-primary-800 text-sm">
-            A
-          </div>
-          <div className="hidden md:block">
-            <p className="text-sm font-medium text-dark-900 dark:text-white">Admin</p>
-            <p className="text-xs text-dark-500 dark:text-dark-400">Barbearia Master</p>
-          </div>
-        </div>
+        {/* Avatar / Perfil — REAL */}
+        <ProfileDropdown />
       </div>
     </header>
   );
 };
 
 export default Topbar;
+

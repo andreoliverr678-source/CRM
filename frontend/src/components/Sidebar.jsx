@@ -1,5 +1,5 @@
 import React from 'react';
-import { NavLink } from 'react-router-dom';
+import { NavLink, useNavigate } from 'react-router-dom';
 import {
   LayoutDashboard,
   Users,
@@ -10,6 +10,7 @@ import {
   Scissors,
   X,
 } from 'lucide-react';
+import { useAuth } from '../context/AuthContext';
 
 const navItems = [
   { name: 'Dashboard',     icon: <LayoutDashboard size={20} />, path: '/' },
@@ -23,6 +24,14 @@ const navItems = [
  * @param {{ isOpen: boolean, onClose: () => void }} props
  */
 const Sidebar = ({ isOpen, onClose }) => {
+  const { logout } = useAuth();
+  const navigate = useNavigate();
+
+  const handleLogout = () => {
+    logout();
+    navigate('/login', { replace: true });
+  };
+
   return (
     <aside
       className={`
@@ -77,7 +86,10 @@ const Sidebar = ({ isOpen, onClose }) => {
 
       {/* Rodapé — Sair */}
       <div className="p-3 border-t border-dark-200 dark:border-dark-800 shrink-0">
-        <button className="flex items-center gap-3 px-4 py-3 w-full min-h-[48px] rounded-xl text-dark-500 dark:text-dark-400 hover:bg-red-50 hover:text-red-600 dark:hover:bg-red-500/10 dark:hover:text-red-400 transition-colors duration-200">
+        <button
+          onClick={handleLogout}
+          className="flex items-center gap-3 px-4 py-3 w-full min-h-[48px] rounded-xl text-dark-500 dark:text-dark-400 hover:bg-red-50 hover:text-red-600 dark:hover:bg-red-500/10 dark:hover:text-red-400 transition-colors duration-200"
+        >
           <LogOut size={20} />
           <span className="text-sm">Sair</span>
         </button>
@@ -87,3 +99,4 @@ const Sidebar = ({ isOpen, onClose }) => {
 };
 
 export default Sidebar;
+
