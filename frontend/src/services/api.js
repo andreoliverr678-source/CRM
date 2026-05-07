@@ -42,6 +42,7 @@ export const fetchClients      = () => api.get('/clients').then((r) => r.data);
 export const fetchClient       = (id) => api.get(`/clients/${id}`).then((r) => r.data);
 export const fetchAppointments = () => api.get('/appointments').then((r) => r.data);
 export const fetchMessages     = () => api.get('/messages').then((r) => r.data);
+export const fetchMessagesByPhone = (phone) => api.get(`/messages/${phone}`).then((r) => r.data);
 
 export const createClient      = (data) => api.post('/clients', data).then((r) => r.data);
 export const updateClient      = (id, data) => api.put(`/clients/${id}`, data).then((r) => r.data);
@@ -49,7 +50,7 @@ export const deleteClient      = (id) => api.delete(`/clients/${id}`).then((r) =
 export const createAppointment = (data) => api.post('/appointments', data).then((r) => r.data);
 export const updateAppointment = (id, data) => api.put(`/appointments/${id}`, data).then((r) => r.data);
 export const deleteAppointment = (id) => api.delete(`/appointments/${id}`).then((r) => r.data);
-export const sendMessage       = (data) => api.post('/messages/webhook', data).then((r) => r.data);
+export const sendChatMessage   = (data) => api.post('/messages/send', data).then((r) => r.data);
 
 // ── Auth ──────────────────────────────────────────────────────────
 export const loginApi     = (email, password) => api.post('/auth/login', { email, password });

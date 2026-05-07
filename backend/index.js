@@ -1,9 +1,15 @@
 const express = require('express');
 const cors = require('cors');
 require('dotenv').config({ override: true });
+const http = require('http');
+const { Server } = require('socket.io');
 
 const app = express();
 const port = process.env.PORT || 3000;
+
+const server = http.createServer(app);
+const io = new Server(server, { cors: { origin: '*' } });
+app.set('io', io);
 
 app.use(cors());
 app.use(express.json());
@@ -46,7 +52,8 @@ app.use((err, req, res, next) => {
   res.status(500).json({ error: 'Erro interno do servidor' });
 });
 
-app.listen(port, '0.0.0.0', () => {
+server.listen(port, '0.0.0.0', () => {
   console.log(`✅ Servidor rodando na porta ${port}`);
   console.log(`🔗 Supabase URL: ${process.env.SUPABASE_URL}`);
+  console.log(`🔌 Socket.io iniciado`);
 });
