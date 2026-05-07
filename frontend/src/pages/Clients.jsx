@@ -1,4 +1,5 @@
-import React, { useState, useMemo, useEffect, useRef } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
+import { createPortal } from 'react-dom';
 import { Plus, Search, Phone, Clock, MoreVertical, AlertCircle, RefreshCw, UserX, ChevronRight, Edit2, Trash2, Eye, Calendar, MessageCircle, X, Check } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import useApi from '../hooks/useApi';
@@ -47,57 +48,62 @@ const StatusBadge = ({ status }) => {
   );
 };
 
-// ------- Action Dropdown -------
-const ActionDropdown = ({ client, onEdit, onDelete, onView }) => {
-  const [open, setOpen] = useState(false);
-  const dropdownRef = useRef(null);
+// ------- Action Modal (Menu de 3 Pontos) -------
+const ActionModal = ({ client, isOpen, onClose, onEdit, onDelete, onView }) => {
   const navigate = useNavigate();
 
   useEffect(() => {
-    const handleClickOutside = (event) => {
-      if (dropdownRef.current && !dropdownRef.current.contains(event.target)) {
-        setOpen(false);
-      }
-    };
-    document.addEventListener("mousedown", handleClickOutside);
-    return () => document.removeEventListener("mousedown", handleClickOutside);
-  }, []);
+    if (isOpen) document.body.style.overflow = 'hidden';
+    else document.body.style.overflow = 'auto';
+    return () => { document.body.style.overflow = 'auto'; };
+  }, [isOpen]);
 
-  return (
-    <div className="relative" ref={dropdownRef}>
-      <button 
-        onClick={(e) => { e.stopPropagation(); setOpen(!open); }}
-        className="text-dark-400 hover:text-dark-900 dark:hover:text-white transition-colors p-2 rounded-lg hover:bg-dark-100 dark:hover:bg-dark-800"
+  if (!isOpen || !client) return null;
+
+  return createPortal(
+    <div 
+      className="fixed inset-0 z-[9999] flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-fade-in"
+      onClick={onClose}
+    >
+      <div 
+        className="bg-white dark:bg-dark-900 rounded-2xl w-full max-w-sm shadow-2xl overflow-hidden flex flex-col transform transition-all scale-100"
+        onClick={e => e.stopPropagation()}
       >
-        <MoreVertical size={18} />
-      </button>
-      {open && (
-        <div className="absolute right-0 mt-2 w-48 bg-white dark:bg-dark-800 border border-dark-200 dark:border-dark-700 rounded-xl shadow-lg z-50 overflow-hidden">
-          <button onClick={(e) => { e.stopPropagation(); setOpen(false); onView(client); }} className="w-full text-left px-4 py-2 text-sm text-dark-700 dark:text-dark-300 hover:bg-dark-50 dark:hover:bg-dark-700 flex items-center gap-2">
-            <Eye size={14} /> Visualizar
-          </button>
-          <button onClick={(e) => { e.stopPropagation(); setOpen(false); onEdit(client); }} className="w-full text-left px-4 py-2 text-sm text-dark-700 dark:text-dark-300 hover:bg-dark-50 dark:hover:bg-dark-700 flex items-center gap-2">
-            <Edit2 size={14} /> Editar
-          </button>
-          <button onClick={(e) => { e.stopPropagation(); setOpen(false); window.open(`https://wa.me/${client.phone?.replace(/\D/g, '')}`, '_blank'); }} className="w-full text-left px-4 py-2 text-sm text-dark-700 dark:text-dark-300 hover:bg-dark-50 dark:hover:bg-dark-700 flex items-center gap-2">
-            <MessageCircle size={14} /> WhatsApp
-          </button>
-          <button onClick={(e) => { e.stopPropagation(); setOpen(false); navigate('/appointments'); }} className="w-full text-left px-4 py-2 text-sm text-dark-700 dark:text-dark-300 hover:bg-dark-50 dark:hover:bg-dark-700 flex items-center gap-2">
-            <Calendar size={14} /> Criar Agendamento
-          </button>
-          <div className="h-px bg-dark-200 dark:bg-dark-700 my-1"></div>
-          <button onClick={(e) => { e.stopPropagation(); setOpen(false); onDelete(client); }} className="w-full text-left px-4 py-2 text-sm text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-500/10 flex items-center gap-2">
-            <Trash2 size={14} /> Excluir
+        <div className="flex items-center justify-between p-5 border-b border-dark-200 dark:border-dark-800 bg-dark-50/50 dark:bg-dark-800/50">
+          <h3 className="font-bold text-dark-900 dark:text-white text-lg">Ações do Cliente</h3>
+          <button 
+            onClick={onClose} 
+            className="p-2 text-dark-400 hover:text-dark-900 dark:hover:text-white rounded-xl hover:bg-dark-200 dark:hover:bg-dark-700 transition-colors"
+          >
+            <X size={20} />
           </button>
         </div>
-      )}
-    </div>
+        <div className="p-3 space-y-1">
+          <button onClick={() => { onClose(); onView(client); }} className="w-full text-left px-4 py-3 text-sm font-medium text-dark-700 dark:text-dark-200 hover:bg-dark-100 dark:hover:bg-dark-800 rounded-xl flex items-center gap-3 transition-colors">
+            <Eye size={18} className="text-blue-500" /> Visualizar Detalhes
+          </button>
+          <button onClick={() => { onClose(); onEdit(client); }} className="w-full text-left px-4 py-3 text-sm font-medium text-dark-700 dark:text-dark-200 hover:bg-dark-100 dark:hover:bg-dark-800 rounded-xl flex items-center gap-3 transition-colors">
+            <Edit2 size={18} className="text-emerald-500" /> Editar Cliente
+          </button>
+          <button onClick={() => { onClose(); window.open(`https://wa.me/${client.phone?.replace(/\D/g, '')}`, '_blank'); }} className="w-full text-left px-4 py-3 text-sm font-medium text-dark-700 dark:text-dark-200 hover:bg-dark-100 dark:hover:bg-dark-800 rounded-xl flex items-center gap-3 transition-colors">
+            <MessageCircle size={18} className="text-emerald-400" /> Abrir WhatsApp
+          </button>
+          <button onClick={() => { onClose(); navigate('/appointments'); }} className="w-full text-left px-4 py-3 text-sm font-medium text-dark-700 dark:text-dark-200 hover:bg-dark-100 dark:hover:bg-dark-800 rounded-xl flex items-center gap-3 transition-colors">
+            <Calendar size={18} className="text-purple-500" /> Criar Agendamento
+          </button>
+          <div className="h-px bg-dark-200 dark:bg-dark-800 my-2"></div>
+          <button onClick={() => { onClose(); onDelete(client); }} className="w-full text-left px-4 py-3 text-sm font-medium text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-500/10 rounded-xl flex items-center gap-3 transition-colors">
+            <Trash2 size={18} /> Excluir Cliente
+          </button>
+        </div>
+      </div>
+    </div>,
+    document.body
   );
 };
 
 // ------- Clients Page -------
 const Clients = () => {
-  const navigate = useNavigate();
   const [search, setSearch] = useState('');
   const [debouncedSearch, setDebouncedSearch] = useState('');
   
@@ -119,12 +125,23 @@ const Clients = () => {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [isViewModalOpen, setIsViewModalOpen] = useState(false);
   const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
+  const [actionClient, setActionClient] = useState(null); // Controls the Action Modal
   const [editingClient, setEditingClient] = useState(null);
   const [viewingClient, setViewingClient] = useState(null);
   const [deletingClient, setDeletingClient] = useState(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   const [formData, setFormData] = useState({ name: '', phone: '', status: 'lead', notes: '' });
+
+  // Prevent background scroll when modals are open
+  useEffect(() => {
+    if (isModalOpen || isViewModalOpen || isDeleteModalOpen) {
+      document.body.style.overflow = 'hidden';
+    } else {
+      document.body.style.overflow = 'auto';
+    }
+    return () => { document.body.style.overflow = 'auto'; };
+  }, [isModalOpen, isViewModalOpen, isDeleteModalOpen]);
 
   const filtered = useMemo(() => {
     if (!clients) return [];
@@ -195,7 +212,7 @@ const Clients = () => {
   };
 
   return (
-    <div className="space-y-4 md:space-y-6 animate-fade-in pb-24 md:pb-0">
+    <div className="space-y-4 md:space-y-6 animate-fade-in pb-24 md:pb-0 relative z-0">
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>
@@ -243,7 +260,7 @@ const Clients = () => {
             value={search}
             onChange={(e) => setSearch(e.target.value)}
             placeholder="Buscar por nome ou telefone..."
-            className="w-full bg-white dark:bg-dark-800 border border-dark-200 dark:border-dark-700 rounded-xl py-2.5 pl-9 pr-4 text-sm focus:ring-2 focus:ring-primary-500 text-dark-900 dark:text-dark-100 placeholder-dark-400"
+            className="w-full bg-white dark:bg-dark-800 border border-dark-200 dark:border-dark-700 rounded-xl py-3 pl-10 pr-4 text-sm focus:ring-2 focus:ring-primary-500 text-dark-900 dark:text-dark-100 placeholder-dark-400 shadow-sm transition-shadow hover:shadow-md"
           />
         </div>
       </div>
@@ -280,15 +297,15 @@ const Clients = () => {
                   <span className="text-xs text-dark-500 dark:text-dark-400 truncate">{client.phone || '—'}</span>
                 </div>
               </div>
-              {/* Status + Dropdown */}
+              {/* Status + Ações */}
               <div className="flex flex-col items-end gap-2 shrink-0">
                 <StatusBadge status={client.status} />
-                <ActionDropdown 
-                  client={client} 
-                  onEdit={() => handleOpenModal(client)} 
-                  onDelete={() => { setDeletingClient(client); setIsDeleteModalOpen(true); }} 
-                  onView={() => { setViewingClient(client); setIsViewModalOpen(true); }} 
-                />
+                <button 
+                  onClick={(e) => { e.stopPropagation(); setActionClient(client); }}
+                  className="text-dark-400 hover:text-dark-900 dark:hover:text-white transition-colors p-2 -mr-2 rounded-lg hover:bg-dark-100 dark:hover:bg-dark-800"
+                >
+                  <MoreVertical size={18} />
+                </button>
               </div>
             </div>
           ))
@@ -306,7 +323,7 @@ const Clients = () => {
               value={search}
               onChange={(e) => setSearch(e.target.value)}
               placeholder="Buscar por nome ou telefone..."
-              className="w-full bg-white dark:bg-dark-800 border border-dark-200 dark:border-dark-700 rounded-xl py-2 pl-10 pr-4 text-sm focus:ring-2 focus:ring-primary-500 text-dark-900 dark:text-dark-100 placeholder-dark-400"
+              className="w-full bg-white dark:bg-dark-800 border border-dark-200 dark:border-dark-700 rounded-xl py-2.5 pl-10 pr-4 text-sm focus:ring-2 focus:ring-primary-500 text-dark-900 dark:text-dark-100 placeholder-dark-400 shadow-sm transition-shadow hover:shadow-md"
             />
           </div>
           {!loading && clients && (
@@ -369,12 +386,12 @@ const Clients = () => {
                     </td>
                     <td className="px-6 py-4 text-right">
                       <div className="flex justify-end">
-                        <ActionDropdown 
-                          client={client} 
-                          onEdit={() => handleOpenModal(client)} 
-                          onDelete={() => { setDeletingClient(client); setIsDeleteModalOpen(true); }} 
-                          onView={() => { setViewingClient(client); setIsViewModalOpen(true); }} 
-                        />
+                        <button 
+                          onClick={(e) => { e.stopPropagation(); setActionClient(client); }}
+                          className="text-dark-400 hover:text-dark-900 dark:hover:text-white transition-colors p-2 rounded-lg hover:bg-dark-100 dark:hover:bg-dark-800"
+                        >
+                          <MoreVertical size={18} />
+                        </button>
                       </div>
                     </td>
                   </tr>
@@ -394,54 +411,72 @@ const Clients = () => {
         <Plus size={24} />
       </button>
 
+      {/* Action Modal Centralizado (Substitui o ActionDropdown antigo) */}
+      <ActionModal 
+        isOpen={!!actionClient}
+        client={actionClient}
+        onClose={() => setActionClient(null)}
+        onEdit={(client) => handleOpenModal(client)}
+        onDelete={(client) => { setDeletingClient(client); setIsDeleteModalOpen(true); }}
+        onView={(client) => { setViewingClient(client); setIsViewModalOpen(true); }}
+      />
+
       {/* Toast */}
-      {toast && (
-        <div className={`fixed bottom-4 right-4 z-50 flex items-center gap-2 px-4 py-3 rounded-xl shadow-lg text-white animate-fade-in ${toast.type === 'error' ? 'bg-red-600' : 'bg-emerald-600'}`}>
-          {toast.type === 'error' ? <AlertCircle size={18} /> : <Check size={18} />}
-          <span className="text-sm font-medium">{toast.message}</span>
-        </div>
+      {toast && createPortal(
+        <div className={`fixed bottom-4 right-4 md:bottom-8 md:right-8 z-[10000] flex items-center gap-3 px-5 py-3.5 rounded-2xl shadow-2xl text-white animate-fade-in ${toast.type === 'error' ? 'bg-red-600 shadow-red-500/20' : 'bg-emerald-600 shadow-emerald-500/20'}`}>
+          {toast.type === 'error' ? <AlertCircle size={20} /> : <Check size={20} />}
+          <span className="text-sm font-semibold">{toast.message}</span>
+        </div>,
+        document.body
       )}
 
-      {/* Modal Criar/Editar */}
-      {isModalOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm animate-fade-in">
-          <div className="bg-white dark:bg-dark-900 rounded-2xl w-full max-w-md shadow-2xl overflow-hidden flex flex-col max-h-[90vh]">
-            <div className="flex items-center justify-between p-4 border-b border-dark-200 dark:border-dark-800">
-              <h2 className="text-lg font-bold text-dark-900 dark:text-white">
+      {/* Modal Criar/Editar (Portal) */}
+      {isModalOpen && createPortal(
+        <div 
+          className="fixed inset-0 z-[9999] flex items-center justify-center p-4 sm:p-6 bg-black/60 backdrop-blur-sm animate-fade-in"
+          onClick={() => setIsModalOpen(false)}
+        >
+          <div 
+            className="bg-white dark:bg-dark-900 rounded-2xl w-full max-w-lg shadow-2xl flex flex-col max-h-[90vh] overflow-hidden"
+            onClick={e => e.stopPropagation()}
+          >
+            <div className="flex items-center justify-between p-5 sm:p-6 border-b border-dark-200 dark:border-dark-800 shrink-0">
+              <h2 className="text-xl font-bold text-dark-900 dark:text-white">
                 {editingClient ? 'Editar Cliente' : 'Novo Cliente'}
               </h2>
-              <button onClick={() => setIsModalOpen(false)} className="text-dark-400 hover:text-dark-900 dark:hover:text-white transition-colors">
+              <button onClick={() => setIsModalOpen(false)} className="p-2 text-dark-400 hover:text-dark-900 dark:hover:text-white hover:bg-dark-100 dark:hover:bg-dark-800 rounded-xl transition-colors">
                 <X size={20} />
               </button>
             </div>
-            <form onSubmit={handleSave} className="p-4 space-y-4 overflow-y-auto">
+            
+            <form onSubmit={handleSave} className="flex-1 overflow-y-auto p-5 sm:p-6 space-y-5">
               <div>
-                <label className="block text-sm font-medium text-dark-700 dark:text-dark-300 mb-1">Nome</label>
+                <label className="block text-sm font-semibold text-dark-700 dark:text-dark-300 mb-1.5">Nome</label>
                 <input 
                   type="text" 
                   value={formData.name} 
                   onChange={(e) => setFormData({...formData, name: e.target.value})} 
                   placeholder="Nome do cliente"
-                  className="w-full bg-dark-50 dark:bg-dark-800 border border-dark-200 dark:border-dark-700 rounded-xl px-3 py-2 text-sm focus:ring-2 focus:ring-primary-500 text-dark-900 dark:text-white"
+                  className="w-full bg-dark-50 dark:bg-dark-800 border border-dark-200 dark:border-dark-700 rounded-xl px-4 py-3 text-sm focus:ring-2 focus:ring-primary-500 text-dark-900 dark:text-white outline-none transition-shadow"
                 />
               </div>
               <div>
-                <label className="block text-sm font-medium text-dark-700 dark:text-dark-300 mb-1">Telefone *</label>
+                <label className="block text-sm font-semibold text-dark-700 dark:text-dark-300 mb-1.5">Telefone <span className="text-red-500">*</span></label>
                 <input 
                   type="text" 
                   required
                   value={formData.phone} 
                   onChange={(e) => setFormData({...formData, phone: e.target.value})} 
                   placeholder="(00) 00000-0000"
-                  className="w-full bg-dark-50 dark:bg-dark-800 border border-dark-200 dark:border-dark-700 rounded-xl px-3 py-2 text-sm focus:ring-2 focus:ring-primary-500 text-dark-900 dark:text-white"
+                  className="w-full bg-dark-50 dark:bg-dark-800 border border-dark-200 dark:border-dark-700 rounded-xl px-4 py-3 text-sm focus:ring-2 focus:ring-primary-500 text-dark-900 dark:text-white outline-none transition-shadow"
                 />
               </div>
               <div>
-                <label className="block text-sm font-medium text-dark-700 dark:text-dark-300 mb-1">Status</label>
+                <label className="block text-sm font-semibold text-dark-700 dark:text-dark-300 mb-1.5">Status</label>
                 <select 
                   value={formData.status} 
                   onChange={(e) => setFormData({...formData, status: e.target.value})}
-                  className="w-full bg-dark-50 dark:bg-dark-800 border border-dark-200 dark:border-dark-700 rounded-xl px-3 py-2 text-sm focus:ring-2 focus:ring-primary-500 text-dark-900 dark:text-white"
+                  className="w-full bg-dark-50 dark:bg-dark-800 border border-dark-200 dark:border-dark-700 rounded-xl px-4 py-3 text-sm focus:ring-2 focus:ring-primary-500 text-dark-900 dark:text-white outline-none transition-shadow"
                 >
                   <option value="lead">Lead</option>
                   <option value="cliente">Cliente</option>
@@ -449,107 +484,128 @@ const Clients = () => {
                 </select>
               </div>
               <div>
-                <label className="block text-sm font-medium text-dark-700 dark:text-dark-300 mb-1">Observações</label>
+                <label className="block text-sm font-semibold text-dark-700 dark:text-dark-300 mb-1.5">Observações</label>
                 <textarea 
-                  rows="3"
+                  rows="4"
                   value={formData.notes} 
                   onChange={(e) => setFormData({...formData, notes: e.target.value})} 
                   placeholder="Detalhes adicionais..."
-                  className="w-full bg-dark-50 dark:bg-dark-800 border border-dark-200 dark:border-dark-700 rounded-xl px-3 py-2 text-sm focus:ring-2 focus:ring-primary-500 text-dark-900 dark:text-white resize-none"
+                  className="w-full bg-dark-50 dark:bg-dark-800 border border-dark-200 dark:border-dark-700 rounded-xl px-4 py-3 text-sm focus:ring-2 focus:ring-primary-500 text-dark-900 dark:text-white outline-none transition-shadow resize-none"
                 />
               </div>
-              <div className="pt-4 flex justify-end gap-2">
-                <button 
-                  type="button" 
-                  onClick={() => setIsModalOpen(false)}
-                  className="px-4 py-2 text-sm font-medium text-dark-600 dark:text-dark-300 hover:bg-dark-100 dark:hover:bg-dark-800 rounded-xl transition-colors"
-                >
-                  Cancelar
-                </button>
-                <button 
-                  type="submit" 
-                  disabled={isSubmitting}
-                  className="px-4 py-2 text-sm font-medium bg-primary-600 hover:bg-primary-700 text-white rounded-xl transition-colors shadow-lg shadow-primary-500/30 disabled:opacity-50 flex items-center gap-2"
-                >
-                  {isSubmitting && <RefreshCw size={14} className="animate-spin" />}
-                  Salvar
-                </button>
-              </div>
             </form>
+            
+            <div className="p-5 sm:p-6 border-t border-dark-200 dark:border-dark-800 shrink-0 flex justify-end gap-3 bg-dark-50/30 dark:bg-dark-900/30">
+              <button 
+                type="button" 
+                onClick={() => setIsModalOpen(false)}
+                className="px-5 py-2.5 text-sm font-semibold text-dark-600 dark:text-dark-300 hover:bg-dark-100 dark:hover:bg-dark-800 rounded-xl transition-colors"
+              >
+                Cancelar
+              </button>
+              <button 
+                type="submit" 
+                disabled={isSubmitting}
+                className="px-5 py-2.5 text-sm font-semibold bg-primary-600 hover:bg-primary-700 text-white rounded-xl transition-colors shadow-lg shadow-primary-500/30 disabled:opacity-50 flex items-center gap-2"
+              >
+                {isSubmitting && <RefreshCw size={16} className="animate-spin" />}
+                Salvar Cliente
+              </button>
+            </div>
           </div>
-        </div>
+        </div>,
+        document.body
       )}
 
-      {/* Modal Visualizar */}
-      {isViewModalOpen && viewingClient && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm animate-fade-in">
-          <div className="bg-white dark:bg-dark-900 rounded-2xl w-full max-w-sm shadow-2xl overflow-hidden">
-            <div className="flex items-center justify-between p-4 border-b border-dark-200 dark:border-dark-800">
-              <h2 className="text-lg font-bold text-dark-900 dark:text-white">Detalhes do Cliente</h2>
-              <button onClick={() => setIsViewModalOpen(false)} className="text-dark-400 hover:text-dark-900 dark:hover:text-white transition-colors">
+      {/* Modal Visualizar (Portal) */}
+      {isViewModalOpen && viewingClient && createPortal(
+        <div 
+          className="fixed inset-0 z-[9999] flex items-center justify-center p-4 sm:p-6 bg-black/60 backdrop-blur-sm animate-fade-in"
+          onClick={() => setIsViewModalOpen(false)}
+        >
+          <div 
+            className="bg-white dark:bg-dark-900 rounded-2xl w-full max-w-sm sm:max-w-md shadow-2xl overflow-hidden flex flex-col max-h-[90vh]"
+            onClick={e => e.stopPropagation()}
+          >
+            <div className="flex items-center justify-between p-5 border-b border-dark-200 dark:border-dark-800 shrink-0">
+              <h2 className="text-xl font-bold text-dark-900 dark:text-white">Ficha do Cliente</h2>
+              <button onClick={() => setIsViewModalOpen(false)} className="p-2 text-dark-400 hover:text-dark-900 dark:hover:text-white hover:bg-dark-100 dark:hover:bg-dark-800 rounded-xl transition-colors">
                 <X size={20} />
               </button>
             </div>
-            <div className="p-6 flex flex-col items-center gap-4">
-              <div className="w-20 h-20 rounded-full bg-gradient-to-br from-primary-400 to-primary-600 flex items-center justify-center text-white text-3xl font-bold shadow-md">
+            
+            <div className="p-6 sm:p-8 flex flex-col items-center gap-5 overflow-y-auto">
+              <div className="w-24 h-24 rounded-full bg-gradient-to-br from-primary-400 to-primary-600 flex items-center justify-center text-white text-4xl font-bold shadow-xl shadow-primary-500/20 shrink-0">
                 {getInitial(viewingClient)}
               </div>
-              <div className="text-center">
-                <h3 className="text-xl font-bold text-dark-900 dark:text-white">{viewingClient.name || 'Sem nome'}</h3>
-                <p className="text-dark-500 dark:text-dark-400 text-sm mt-1">{viewingClient.phone}</p>
-                <div className="mt-2"><StatusBadge status={viewingClient.status} /></div>
+              <div className="text-center w-full">
+                <h3 className="text-2xl font-bold text-dark-900 dark:text-white mb-1 truncate">{viewingClient.name || 'Sem nome'}</h3>
+                <p className="text-dark-500 dark:text-dark-400 text-base">{viewingClient.phone}</p>
+                <div className="mt-3"><StatusBadge status={viewingClient.status} /></div>
               </div>
               
-              <div className="w-full mt-4 space-y-3 text-sm">
-                <div className="bg-dark-50 dark:bg-dark-800 rounded-xl p-3">
-                  <p className="text-dark-500 dark:text-dark-400 text-xs font-medium uppercase mb-1">Cadastrado em</p>
-                  <p className="text-dark-900 dark:text-white">{formatDate(viewingClient.created_at)}</p>
+              <div className="w-full mt-2 space-y-4 text-sm">
+                <div className="bg-dark-50 dark:bg-dark-800 rounded-2xl p-4">
+                  <p className="text-dark-500 dark:text-dark-400 text-xs font-bold uppercase tracking-wider mb-1.5">Cadastrado em</p>
+                  <p className="text-dark-900 dark:text-white font-medium">{formatDate(viewingClient.created_at)}</p>
                 </div>
                 {viewingClient.notes && (
-                  <div className="bg-dark-50 dark:bg-dark-800 rounded-xl p-3">
-                    <p className="text-dark-500 dark:text-dark-400 text-xs font-medium uppercase mb-1">Observações</p>
-                    <p className="text-dark-900 dark:text-white whitespace-pre-wrap">{viewingClient.notes}</p>
+                  <div className="bg-dark-50 dark:bg-dark-800 rounded-2xl p-4">
+                    <p className="text-dark-500 dark:text-dark-400 text-xs font-bold uppercase tracking-wider mb-1.5">Observações</p>
+                    <p className="text-dark-900 dark:text-white font-medium whitespace-pre-wrap leading-relaxed">{viewingClient.notes}</p>
                   </div>
                 )}
               </div>
             </div>
-            <div className="p-4 bg-dark-50 dark:bg-dark-800/50 flex justify-end">
-              <button onClick={() => setIsViewModalOpen(false)} className="px-4 py-2 bg-dark-200 dark:bg-dark-700 text-dark-900 dark:text-white rounded-xl text-sm font-medium hover:bg-dark-300 dark:hover:bg-dark-600 transition-colors">
+            
+            <div className="p-5 bg-dark-50/50 dark:bg-dark-800/50 border-t border-dark-200 dark:border-dark-800 flex justify-end shrink-0">
+              <button 
+                onClick={() => setIsViewModalOpen(false)} 
+                className="px-6 py-2.5 bg-dark-200 dark:bg-dark-700 text-dark-900 dark:text-white rounded-xl text-sm font-semibold hover:bg-dark-300 dark:hover:bg-dark-600 transition-colors"
+              >
                 Fechar
               </button>
             </div>
           </div>
-        </div>
+        </div>,
+        document.body
       )}
 
-      {/* Modal Excluir */}
-      {isDeleteModalOpen && deletingClient && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm animate-fade-in">
-          <div className="bg-white dark:bg-dark-900 rounded-2xl w-full max-w-sm shadow-2xl p-6 text-center">
-            <div className="w-16 h-16 bg-red-100 dark:bg-red-500/20 text-red-600 dark:text-red-500 rounded-full flex items-center justify-center mx-auto mb-4">
-              <AlertCircle size={32} />
+      {/* Modal Excluir (Portal) */}
+      {isDeleteModalOpen && deletingClient && createPortal(
+        <div 
+          className="fixed inset-0 z-[9999] flex items-center justify-center p-4 sm:p-6 bg-black/60 backdrop-blur-sm animate-fade-in"
+          onClick={() => setIsDeleteModalOpen(false)}
+        >
+          <div 
+            className="bg-white dark:bg-dark-900 rounded-2xl w-full max-w-sm shadow-2xl p-6 sm:p-8 text-center"
+            onClick={e => e.stopPropagation()}
+          >
+            <div className="w-20 h-20 bg-red-100 dark:bg-red-500/20 text-red-600 dark:text-red-500 rounded-full flex items-center justify-center mx-auto mb-5">
+              <AlertCircle size={40} />
             </div>
-            <h3 className="text-lg font-bold text-dark-900 dark:text-white mb-2">Excluir Cliente?</h3>
-            <p className="text-sm text-dark-500 dark:text-dark-400 mb-6">
-              Tem certeza que deseja excluir <strong>{deletingClient.name}</strong>? Esta ação não pode ser desfeita.
+            <h3 className="text-xl font-bold text-dark-900 dark:text-white mb-2">Excluir Cliente?</h3>
+            <p className="text-sm md:text-base text-dark-500 dark:text-dark-400 mb-8 leading-relaxed">
+              Tem certeza que deseja excluir <strong>{deletingClient.name}</strong>? Esta ação não pode ser desfeita e removerá todo o histórico.
             </p>
             <div className="flex gap-3">
               <button 
                 onClick={() => setIsDeleteModalOpen(false)}
-                className="flex-1 py-2.5 bg-dark-100 dark:bg-dark-800 text-dark-900 dark:text-white font-medium rounded-xl hover:bg-dark-200 dark:hover:bg-dark-700 transition-colors"
+                className="flex-1 py-3 bg-dark-100 dark:bg-dark-800 text-dark-900 dark:text-white font-semibold rounded-xl hover:bg-dark-200 dark:hover:bg-dark-700 transition-colors"
               >
                 Cancelar
               </button>
               <button 
                 onClick={handleDelete}
                 disabled={isSubmitting}
-                className="flex-1 py-2.5 bg-red-600 text-white font-medium rounded-xl hover:bg-red-700 transition-colors flex items-center justify-center gap-2 disabled:opacity-50"
+                className="flex-1 py-3 bg-red-600 text-white font-semibold rounded-xl hover:bg-red-700 transition-colors flex items-center justify-center gap-2 disabled:opacity-50 shadow-lg shadow-red-500/30"
               >
-                {isSubmitting ? <RefreshCw size={16} className="animate-spin" /> : 'Excluir'}
+                {isSubmitting ? <RefreshCw size={18} className="animate-spin" /> : 'Sim, Excluir'}
               </button>
             </div>
           </div>
-        </div>
+        </div>,
+        document.body
       )}
     </div>
   );
