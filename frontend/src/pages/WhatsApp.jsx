@@ -5,7 +5,7 @@ import { ptBR } from 'date-fns/locale';
 import { io } from 'socket.io-client';
 import useApi from '../hooks/useApi';
 import useMediaQuery from '../hooks/useMediaQuery';
-import { fetchMessages, sendChatMessage } from '../services/api';
+import { fetchMessages, sendChatMessage, fetchClients } from '../services/api';
 
 // ------- Helpers -------
 const formatTime = (dateStr) => {
@@ -15,7 +15,7 @@ const formatTime = (dateStr) => {
 };
 
 // Agrupa mensagens por telefone para montar a lista de conversas
-const groupByPhone = (messages) => {
+const groupByPhone = (messages, clientsData = []) => {
   const map = new Map();
   messages.forEach((m) => {
     const key = m.phone || 'desconhecido';
@@ -23,12 +23,20 @@ const groupByPhone = (messages) => {
     map.get(key).push(m);
   });
   return Array.from(map.entries())
-    .map(([phone, msgs]) => ({
-      phone,
-      label: phone,
-      lastMsg: msgs[msgs.length - 1],
-      messages: msgs,
-    }))
+    .map(([phone, msgs]) => {
+      // Normaliza o telefone para comparação (remove não numéricos)
+      const rawPhone = phone.replace(/\D/g, '');
+      const client = clientsData.find(c => c.phone?.replace(/\D/g, '') === rawPhone);
+      const name = client?.name || null;
+
+      return {
+        phone,
+        clientName: name,
+        label: name || phone,
+        lastMsg: msgs[msgs.length - 1],
+        messages: msgs,
+      };
+    })
     .sort((a, b) => {
       // Ordena a lista de conversas pela mais recente
       if (!a.lastMsg || !b.lastMsg) return 0;
@@ -68,12 +76,18 @@ const WhatsApp = () => {
   const [isTyping, setIsTyping] = useState(false); // Fake typing indicator
   const messagesEndRef = useRef(null);
 
-  const { data: initialMessages, loading, error, refetch } = useApi(fetchMessages);
+  const { data: initialMessages, loading, error, refetch: refetchMsgs } = useApi(fetchMessages);
+  const { data: clientsData, refetch: refetchClients } = useApi(fetchClients);
 
   // Load initial data
   useEffect(() => {
     if (initialMessages) setMessagesData(initialMessages);
   }, [initialMessages]);
+
+  const handleRefetch = () => {
+    refetchMsgs();
+    refetchClients();
+  };
 
   // Real-time via Socket.io
   useEffect(() => {
@@ -99,8 +113,8 @@ const WhatsApp = () => {
   }, []);
 
   const conversations = useMemo(() => {
-    return groupByPhone(messagesData);
-  }, [messagesData]);
+    return groupByPhone(messagesData, clientsData || []);
+  }, [messagesData, clientsData]);
 
   // Seleciona a primeira conversa automaticamente (só no desktop)
   useEffect(() => {
@@ -201,7 +215,7 @@ const WhatsApp = () => {
                     <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-500"></span>
                   </span>
                   <button
-                    onClick={refetch}
+                    onClick={handleRefetch}
                     title="Sincronizar Manualmente"
                     className="p-1.5 rounded-lg text-dark-400 hover:text-dark-900 dark:hover:text-white hover:bg-dark-100 dark:hover:bg-dark-800 transition-all active:scale-90"
                   >
@@ -245,7 +259,7 @@ const WhatsApp = () => {
                     <div
                       key={conv.phone}
                       onClick={() => handleSelectConversation(conv.phone)}
-                      className={`p-4 border-b border-dark-100 dark:border-dark-800/50 cursor-pointer transition-colors active:scale-[0.98] ${
+                      className={`p-4 border-b border-dark-100 dark:border-dark-800/50 cursor-pointer transition-colors hover:shadow-md active:scale-[0.98] ${
                         isActive && !isMobile
                           ? 'border-l-4 border-emerald-500 bg-emerald-50 dark:bg-emerald-500/10'
                           : 'border-l-4 border-transparent hover:bg-dark-50 dark:hover:bg-dark-800/50'
@@ -253,18 +267,23 @@ const WhatsApp = () => {
                     >
                       <div className="flex items-center gap-3">
                         {/* Avatar */}
-                        <div className="w-11 h-11 rounded-full bg-emerald-100 dark:bg-emerald-900/50 flex items-center justify-center text-emerald-600 dark:text-emerald-400 font-bold shrink-0 text-sm">
-                          {(conv.phone || '?').charAt(0)}
+                        <div className="w-11 h-11 rounded-full bg-emerald-100 dark:bg-emerald-900/50 flex items-center justify-center text-emerald-600 dark:text-emerald-400 font-bold shrink-0 text-sm shadow-sm">
+                          {conv.clientName ? conv.clientName.charAt(0).toUpperCase() : (conv.phone || '?').charAt(0)}
                         </div>
-                        <div className="flex-1 min-w-0">
+                        <div className="flex-1 min-w-0 flex flex-col justify-center">
                           <div className="flex justify-between items-baseline mb-0.5">
                             <h3 className="font-semibold text-dark-900 dark:text-white text-sm truncate max-w-[160px]">
-                              {conv.label}
+                              {conv.clientName ? conv.clientName : conv.phone}
                             </h3>
-                            <span className="text-[10px] text-dark-400 shrink-0 ml-1">
+                            <span className="text-[10px] text-dark-400 shrink-0 ml-1 font-medium">
                               {conv.lastMsg ? formatTime(conv.lastMsg.created_at) : ''}
                             </span>
                           </div>
+                          {conv.clientName && (
+                            <p className="text-[10px] text-emerald-600 dark:text-emerald-400/80 mb-0.5 truncate font-medium">
+                              {conv.phone}
+                            </p>
+                          )}
                           <p className="text-xs text-dark-500 dark:text-dark-400 truncate">
                             {conv.lastMsg?.message || '—'}
                           </p>
@@ -297,15 +316,15 @@ const WhatsApp = () => {
 
               {activeConversation ? (
                 <div className="flex items-center gap-3 flex-1 min-w-0">
-                  <div className="w-9 h-9 rounded-full bg-emerald-100 dark:bg-emerald-900/50 flex items-center justify-center text-emerald-600 dark:text-emerald-400 font-bold text-sm shrink-0">
-                    {(activeConversation.phone || '?').charAt(0)}
+                  <div className="w-9 h-9 rounded-full bg-emerald-100 dark:bg-emerald-900/50 flex items-center justify-center text-emerald-600 dark:text-emerald-400 font-bold text-sm shrink-0 shadow-sm">
+                    {activeConversation.clientName ? activeConversation.clientName.charAt(0).toUpperCase() : (activeConversation.phone || '?').charAt(0)}
                   </div>
-                  <div className="min-w-0">
-                    <h2 className="font-bold text-dark-900 dark:text-white text-sm truncate">
-                      {activeConversation.phone}
+                  <div className="min-w-0 flex flex-col">
+                    <h2 className="font-bold text-dark-900 dark:text-white text-sm truncate leading-tight">
+                      {activeConversation.clientName ? activeConversation.clientName : activeConversation.phone}
                     </h2>
-                    <p className="text-xs text-emerald-600 dark:text-emerald-400 font-medium">
-                      Online
+                    <p className="text-[11px] text-emerald-600 dark:text-emerald-400 font-medium">
+                      Online {activeConversation.clientName && <span className="text-dark-400 font-normal ml-1">• {activeConversation.phone}</span>}
                     </p>
                   </div>
                 </div>
