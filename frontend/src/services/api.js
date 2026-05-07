@@ -39,10 +39,13 @@ api.interceptors.response.use(
 // ── Rotas existentes ──────────────────────────────────────────────
 export const fetchMetrics      = () => api.get('/metrics').then((r) => r.data);
 export const fetchClients      = () => api.get('/clients').then((r) => r.data);
+export const fetchClient       = (id) => api.get(`/clients/${id}`).then((r) => r.data);
 export const fetchAppointments = () => api.get('/appointments').then((r) => r.data);
 export const fetchMessages     = () => api.get('/messages').then((r) => r.data);
 
 export const createClient      = (data) => api.post('/clients', data).then((r) => r.data);
+export const updateClient      = (id, data) => api.put(`/clients/${id}`, data).then((r) => r.data);
+export const deleteClient      = (id) => api.delete(`/clients/${id}`).then((r) => r.data);
 export const createAppointment = (data) => api.post('/appointments', data).then((r) => r.data);
 export const sendMessage       = (data) => api.post('/messages/webhook', data).then((r) => r.data);
 
