@@ -24,15 +24,13 @@ router.post('/login', async (req, res) => {
       .single();
 
     if (error || !user) {
-      console.error('[AUTH] Usuário não encontrado para email:', email, '| Supabase error:', error?.message);
-      return res.status(401).json({ error: 'Usuário não encontrado no sistema' });
+      return res.status(401).json({ error: 'Credenciais inválidas' });
     }
 
     // Valida senha
     const isValid = await bcrypt.compare(password, user.password_hash);
-    console.log('[AUTH] Hash DB:', user.password_hash?.slice(0,20), '| Senha recebida:', password?.length, 'chars | Match:', isValid);
     if (!isValid) {
-      return res.status(401).json({ error: 'Senha incorreta' });
+      return res.status(401).json({ error: 'Credenciais inválidas' });
     }
 
     // Gera token (24h)
