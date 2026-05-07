@@ -22,6 +22,7 @@ const messagesRouter = require('./routes/messages');
 const authRouter = require('./routes/auth');
 const notificationsRouter = require('./routes/notifications');
 const profileRouter = require('./routes/profile');
+const dashboardRouter = require('./routes/dashboard');
 
 app.use('/api/clients', clientsRouter);
 app.use('/api/appointments', appointmentsRouter);
@@ -30,6 +31,7 @@ app.use('/api/messages', messagesRouter);
 app.use('/api/auth', authRouter);
 app.use('/api/notifications', notificationsRouter);
 app.use('/api/profile', profileRouter);
+app.use('/api/dashboard', dashboardRouter);
 
 // Health check
 app.get('/', (req, res) => {

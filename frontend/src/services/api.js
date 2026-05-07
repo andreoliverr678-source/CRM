@@ -43,6 +43,7 @@ export const fetchClient       = (id) => api.get(`/clients/${id}`).then((r) => r
 export const fetchAppointments = () => api.get('/appointments').then((r) => r.data);
 export const fetchMessages     = () => api.get('/messages').then((r) => r.data);
 export const fetchMessagesByPhone = (phone) => api.get(`/messages/${phone}`).then((r) => r.data);
+export const fetchDashboard    = () => api.get('/dashboard').then((r) => r.data);
 
 export const createClient      = (data) => api.post('/clients', data).then((r) => r.data);
 export const updateClient      = (id, data) => api.put(`/clients/${id}`, data).then((r) => r.data);
