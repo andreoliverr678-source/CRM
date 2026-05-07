@@ -47,6 +47,8 @@ export const createClient      = (data) => api.post('/clients', data).then((r) =
 export const updateClient      = (id, data) => api.put(`/clients/${id}`, data).then((r) => r.data);
 export const deleteClient      = (id) => api.delete(`/clients/${id}`).then((r) => r.data);
 export const createAppointment = (data) => api.post('/appointments', data).then((r) => r.data);
+export const updateAppointment = (id, data) => api.put(`/appointments/${id}`, data).then((r) => r.data);
+export const deleteAppointment = (id) => api.delete(`/appointments/${id}`).then((r) => r.data);
 export const sendMessage       = (data) => api.post('/messages/webhook', data).then((r) => r.data);
 
 // ── Auth ──────────────────────────────────────────────────────────

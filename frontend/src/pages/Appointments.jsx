@@ -1,12 +1,13 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
+import { createPortal } from 'react-dom';
 import {
   Plus, Search, Calendar as CalendarIcon, Clock, User,
-  CheckCircle, XCircle, Clock3, AlertCircle, RefreshCw, CalendarX,
+  CheckCircle, XCircle, Clock3, AlertCircle, RefreshCw, CalendarX, MoreVertical, X, Trash2, Edit2, Check, MessageCircle, Info
 } from 'lucide-react';
 import { format, parseISO } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import useApi from '../hooks/useApi';
-import { fetchAppointments } from '../services/api';
+import { fetchAppointments, createAppointment, updateAppointment, deleteAppointment } from '../services/api';
 
 // ------- Skeleton Row (desktop) -------
 const SkeletonRow = () => (
@@ -40,7 +41,8 @@ const STATUS_MAP = {
   confirmed:  { style: 'bg-emerald-100 text-emerald-700 dark:bg-emerald-500/20 dark:text-emerald-400 border-emerald-200 dark:border-emerald-800', label: 'Confirmado', icon: <CheckCircle size={13} className="mr-1" />, border: 'border-emerald-500' },
   cancelado:  { style: 'bg-red-100 text-red-700 dark:bg-red-500/20 dark:text-red-400 border-red-200 dark:border-red-800', label: 'Cancelado', icon: <XCircle size={13} className="mr-1" />, border: 'border-red-500' },
   cancelled:  { style: 'bg-red-100 text-red-700 dark:bg-red-500/20 dark:text-red-400 border-red-200 dark:border-red-800', label: 'Cancelado', icon: <XCircle size={13} className="mr-1" />, border: 'border-red-500' },
-  concluido:  { style: 'bg-blue-100 text-blue-700 dark:bg-blue-500/20 dark:text-blue-400 border-blue-200 dark:border-blue-800', label: 'Concluído', icon: <Clock3 size={13} className="mr-1" />, border: 'border-blue-500' },
+  concluido:  { style: 'bg-blue-100 text-blue-700 dark:bg-blue-500/20 dark:text-blue-400 border-blue-200 dark:border-blue-800', label: 'Concluído', icon: <CheckCircle size={13} className="mr-1" />, border: 'border-blue-500' },
+  pendente:    { style: 'bg-orange-100 text-orange-700 dark:bg-orange-500/20 dark:text-orange-400 border-orange-200 dark:border-orange-800', label: 'Pendente', icon: <Clock3 size={13} className="mr-1" />, border: 'border-orange-400' },
   pending:    { style: 'bg-orange-100 text-orange-700 dark:bg-orange-500/20 dark:text-orange-400 border-orange-200 dark:border-orange-800', label: 'Pendente', icon: <Clock3 size={13} className="mr-1" />, border: 'border-orange-400' },
 };
 
@@ -67,25 +69,207 @@ const formatTime = (timeStr) => {
   return timeStr.substring(0, 5);
 };
 
+// ------- Action Modal (Portal) -------
+const ActionModal = ({ apt, isOpen, onClose, onEdit, onDelete, onStatusChange }) => {
+  useEffect(() => {
+    if (isOpen) document.body.style.overflow = 'hidden';
+    else document.body.style.overflow = 'auto';
+    return () => { document.body.style.overflow = 'auto'; };
+  }, [isOpen]);
+
+  if (!isOpen || !apt) return null;
+
+  return createPortal(
+    <div 
+      className="fixed inset-0 z-[9999] flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-fade-in"
+      onClick={onClose}
+    >
+      <div 
+        className="bg-white dark:bg-dark-900 rounded-2xl w-full max-w-sm shadow-2xl overflow-hidden flex flex-col transform transition-all scale-100"
+        onClick={e => e.stopPropagation()}
+      >
+        <div className="flex items-center justify-between p-5 border-b border-dark-200 dark:border-dark-800 bg-dark-50/50 dark:bg-dark-800/50">
+          <h3 className="font-bold text-dark-900 dark:text-white text-lg">Ações</h3>
+          <button 
+            onClick={onClose} 
+            className="p-2 text-dark-400 hover:text-dark-900 dark:hover:text-white rounded-xl hover:bg-dark-200 dark:hover:bg-dark-700 transition-colors"
+          >
+            <X size={20} />
+          </button>
+        </div>
+        <div className="p-3 space-y-1">
+          <button onClick={() => { onClose(); onEdit(apt); }} className="w-full text-left px-4 py-3 text-sm font-medium text-dark-700 dark:text-dark-200 hover:bg-dark-100 dark:hover:bg-dark-800 rounded-xl flex items-center gap-3 transition-colors">
+            <Edit2 size={18} className="text-blue-500" /> Editar Agendamento
+          </button>
+          {apt.status !== 'concluido' && (
+            <button onClick={() => { onClose(); onStatusChange(apt, 'concluido'); }} className="w-full text-left px-4 py-3 text-sm font-medium text-dark-700 dark:text-dark-200 hover:bg-dark-100 dark:hover:bg-dark-800 rounded-xl flex items-center gap-3 transition-colors">
+              <CheckCircle size={18} className="text-emerald-500" /> Marcar como Concluído
+            </button>
+          )}
+          {apt.status !== 'cancelado' && (
+            <button onClick={() => { onClose(); onStatusChange(apt, 'cancelado'); }} className="w-full text-left px-4 py-3 text-sm font-medium text-dark-700 dark:text-dark-200 hover:bg-dark-100 dark:hover:bg-dark-800 rounded-xl flex items-center gap-3 transition-colors">
+              <XCircle size={18} className="text-orange-500" /> Cancelar Agendamento
+            </button>
+          )}
+          <button onClick={() => { onClose(); window.open(`https://wa.me/${apt.client_phone?.replace(/\D/g, '')}`, '_blank'); }} className="w-full text-left px-4 py-3 text-sm font-medium text-dark-700 dark:text-dark-200 hover:bg-dark-100 dark:hover:bg-dark-800 rounded-xl flex items-center gap-3 transition-colors">
+            <MessageCircle size={18} className="text-emerald-400" /> Abrir WhatsApp
+          </button>
+          <div className="h-px bg-dark-200 dark:bg-dark-800 my-2"></div>
+          <button onClick={() => { onClose(); onDelete(apt); }} className="w-full text-left px-4 py-3 text-sm font-medium text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-500/10 rounded-xl flex items-center gap-3 transition-colors">
+            <Trash2 size={18} /> Excluir Agendamento
+          </button>
+        </div>
+      </div>
+    </div>,
+    document.body
+  );
+};
+
 // ------- Appointments Page -------
 const Appointments = () => {
   const [search, setSearch] = useState('');
+  const [debouncedSearch, setDebouncedSearch] = useState('');
+
+  // Debounce
+  useEffect(() => {
+    const handler = setTimeout(() => setDebouncedSearch(search), 300);
+    return () => clearTimeout(handler);
+  }, [search]);
 
   const { data: appointments, loading, error, refetch } = useApi(fetchAppointments, { interval: 30_000 });
 
+  const [toast, setToast] = useState(null);
+  const showToast = (message, type = 'success') => {
+    setToast({ message, type });
+    setTimeout(() => setToast(null), 3000);
+  };
+
+  // Modals state
+  const [isModalOpen, setIsModalOpen] = useState(false);
+  const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
+  const [actionApt, setActionApt] = useState(null);
+  const [editingApt, setEditingApt] = useState(null);
+  const [deletingApt, setDeletingApt] = useState(null);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+
+  const [formData, setFormData] = useState({ 
+    client_name: '', 
+    client_phone: '', 
+    service: '', 
+    date: '', 
+    time: '', 
+    barber: '', 
+    notes: '', 
+    status: 'pendente' 
+  });
+
   const filtered = useMemo(() => {
     if (!appointments) return [];
-    const q = search.toLowerCase();
+    const q = debouncedSearch.toLowerCase();
     return appointments.filter(
       (a) =>
-        (a.nome || '').toLowerCase().includes(q) ||
-        (a.telefone || '').includes(q) ||
-        (a.servico || '').toLowerCase().includes(q)
+        (a.client_name || '').toLowerCase().includes(q) ||
+        (a.client_phone || '').includes(q) ||
+        (a.service || '').toLowerCase().includes(q)
     );
-  }, [appointments, search]);
+  }, [appointments, debouncedSearch]);
+
+  const handleOpenModal = (apt = null) => {
+    if (apt) {
+      setEditingApt(apt);
+      setFormData({ 
+        client_name: apt.client_name || '', 
+        client_phone: apt.client_phone || '', 
+        service: apt.service || '', 
+        date: apt.date || '', 
+        time: apt.time?.substring(0, 5) || '', 
+        barber: apt.barber || '', 
+        notes: apt.notes || '', 
+        status: apt.status || 'pendente' 
+      });
+    } else {
+      setEditingApt(null);
+      setFormData({ 
+        client_name: '', 
+        client_phone: '', 
+        service: '', 
+        date: '', 
+        time: '', 
+        barber: '', 
+        notes: '', 
+        status: 'pendente' 
+      });
+    }
+    setIsModalOpen(true);
+  };
+
+  const handleStatusChange = async (apt, newStatus) => {
+    try {
+      await updateAppointment(apt.id, { status: newStatus });
+      showToast('Status atualizado com sucesso');
+      refetch();
+    } catch (err) {
+      showToast(err.response?.data?.error || 'Erro ao atualizar status', 'error');
+    }
+  };
+
+  const handleSave = async (e) => {
+    e.preventDefault();
+    
+    // Front-end Validations
+    const [hours, minutes] = formData.time.split(':').map(Number);
+    if (hours < 8 || hours > 20) {
+      return showToast('O horário deve estar entre 08:00 e 20:00.', 'error');
+    }
+
+    if (!editingApt || (editingApt.date !== formData.date || editingApt.time.substring(0, 5) !== formData.time)) {
+      // Validate conflict
+      const hasConflict = appointments?.some(a => 
+        a.date === formData.date && 
+        a.time.substring(0, 5) === formData.time && 
+        a.status !== 'cancelado' &&
+        a.id !== editingApt?.id
+      );
+      if (hasConflict) {
+        return showToast('Conflito: Já existe um agendamento para este horário.', 'error');
+      }
+    }
+
+    setIsSubmitting(true);
+    try {
+      if (editingApt) {
+        await updateAppointment(editingApt.id, formData);
+        showToast('Agendamento atualizado com sucesso');
+      } else {
+        await createAppointment(formData);
+        showToast('Agendamento criado com sucesso');
+      }
+      setIsModalOpen(false);
+      refetch();
+    } catch (err) {
+      showToast(err.response?.data?.error || 'Erro ao salvar agendamento', 'error');
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
+  const handleDelete = async () => {
+    if (!deletingApt) return;
+    setIsSubmitting(true);
+    try {
+      await deleteAppointment(deletingApt.id);
+      showToast('Agendamento excluído com sucesso');
+      setIsDeleteModalOpen(false);
+      refetch();
+    } catch (err) {
+      showToast(err.response?.data?.error || 'Erro ao excluir agendamento', 'error');
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
 
   return (
-    <div className="space-y-4 md:space-y-6 animate-fade-in pb-24 md:pb-0">
+    <div className="space-y-4 md:space-y-6 animate-fade-in pb-24 md:pb-0 relative z-0">
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>
@@ -103,10 +287,13 @@ const Appointments = () => {
             title="Atualizar"
             className="p-2.5 rounded-xl text-dark-400 hover:text-dark-900 dark:hover:text-white hover:bg-dark-100 dark:hover:bg-dark-800 transition-all active:scale-90"
           >
-            <RefreshCw size={16} />
+            <RefreshCw size={16} className={loading ? "animate-spin" : ""} />
           </button>
           {/* Botão "Novo" — só desktop */}
-          <button className="hidden md:flex items-center gap-2 bg-primary-600 hover:bg-primary-700 text-white px-5 py-2.5 rounded-xl transition-all shadow-lg shadow-primary-500/30">
+          <button 
+            onClick={() => handleOpenModal()}
+            className="hidden md:flex items-center gap-2 bg-primary-600 hover:bg-primary-700 text-white px-5 py-2.5 rounded-xl transition-all shadow-lg shadow-primary-500/30"
+          >
             <Plus size={18} />
             <span>Novo Agendamento</span>
           </button>
@@ -130,7 +317,7 @@ const Appointments = () => {
             value={search}
             onChange={(e) => setSearch(e.target.value)}
             placeholder="Buscar cliente ou serviço..."
-            className="w-full bg-white dark:bg-dark-800 border border-dark-200 dark:border-dark-700 rounded-xl py-2.5 pl-9 pr-4 text-sm focus:ring-2 focus:ring-primary-500 text-dark-900 dark:text-dark-100 placeholder-dark-400"
+            className="w-full bg-white dark:bg-dark-800 border border-dark-200 dark:border-dark-700 rounded-xl py-3 pl-10 pr-4 text-sm focus:ring-2 focus:ring-primary-500 text-dark-900 dark:text-dark-100 placeholder-dark-400 shadow-sm transition-shadow hover:shadow-md"
           />
         </div>
       </div>
@@ -153,7 +340,7 @@ const Appointments = () => {
             return (
               <div
                 key={apt.id}
-                className={`glass-panel rounded-2xl p-4 flex items-start gap-3 border-l-4 ${borderColor} active:scale-[0.98] transition-transform cursor-pointer`}
+                className={`glass-panel rounded-2xl p-4 flex items-start gap-3 border-l-4 ${borderColor} active:scale-[0.98] transition-transform`}
               >
                 {/* Avatar */}
                 <div className="w-10 h-10 rounded-full bg-dark-100 dark:bg-dark-800 flex items-center justify-center text-dark-500 dark:text-dark-400 shrink-0 mt-0.5">
@@ -162,25 +349,31 @@ const Appointments = () => {
                 {/* Info */}
                 <div className="flex-1 min-w-0">
                   <p className="font-semibold text-dark-900 dark:text-white text-sm truncate">
-                    {apt.nome || <span className="text-dark-400 italic">Sem nome</span>}
+                    {apt.client_name || <span className="text-dark-400 italic">Sem nome</span>}
                   </p>
-                  {apt.servico && (
-                    <p className="text-xs text-dark-500 dark:text-dark-400 mt-0.5 truncate">{apt.servico}</p>
+                  {apt.service && (
+                    <p className="text-xs text-dark-500 dark:text-dark-400 mt-0.5 truncate">{apt.service}</p>
                   )}
                   <div className="flex items-center gap-3 mt-1.5">
                     <span className="flex items-center gap-1 text-xs text-dark-400">
                       <CalendarIcon size={11} />
-                      {formatDate(apt.data)}
+                      {formatDate(apt.date)}
                     </span>
                     <span className="flex items-center gap-1 text-xs text-dark-400">
                       <Clock size={11} />
-                      {formatTime(apt.hora)}
+                      {formatTime(apt.time)}
                     </span>
                   </div>
                 </div>
-                {/* Status */}
-                <div className="shrink-0 mt-0.5">
+                {/* Status + Ações */}
+                <div className="shrink-0 mt-0.5 flex flex-col items-end gap-2">
                   <StatusBadge status={apt.status} />
+                  <button 
+                    onClick={(e) => { e.stopPropagation(); setActionApt(apt); }}
+                    className="text-dark-400 hover:text-dark-900 dark:hover:text-white transition-colors p-2 -mr-2 rounded-lg hover:bg-dark-100 dark:hover:bg-dark-800"
+                  >
+                    <MoreVertical size={18} />
+                  </button>
                 </div>
               </div>
             );
@@ -191,18 +384,8 @@ const Appointments = () => {
       {/* ===== DESKTOP: Tabela ===== */}
       <div className="hidden md:block glass-panel rounded-2xl overflow-hidden">
         {/* Toolbar */}
-        <div className="p-6 border-b border-dark-200 dark:border-dark-800 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 bg-white/50 dark:bg-dark-900/50">
-          <div className="relative w-full sm:w-72">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-dark-400" size={18} />
-            <input
-              type="text"
-              value={search}
-              onChange={(e) => setSearch(e.target.value)}
-              placeholder="Buscar cliente ou serviço..."
-              className="w-full bg-white dark:bg-dark-800 border border-dark-200 dark:border-dark-700 rounded-xl py-2 pl-10 pr-4 text-sm focus:ring-2 focus:ring-primary-500 text-dark-900 dark:text-dark-100 placeholder-dark-400"
-            />
-          </div>
-          <div className="text-sm text-dark-500 dark:text-dark-400 font-medium shrink-0">
+        <div className="p-6 border-b border-dark-200 dark:border-dark-800 flex justify-between items-center bg-white/50 dark:bg-dark-900/50">
+          <div className="text-sm text-dark-500 dark:text-dark-400 font-medium">
             {format(new Date(), "dd 'de' MMMM, yyyy", { locale: ptBR })}
           </div>
         </div>
@@ -235,7 +418,7 @@ const Appointments = () => {
                 </tr>
               ) : (
                 filtered.map((apt) => (
-                  <tr key={apt.id} className="hover:bg-dark-50/50 dark:hover:bg-dark-800/30 transition-colors group">
+                  <tr key={apt.id} className="hover:bg-dark-50/50 dark:hover:bg-dark-800/30 transition-colors">
                     <td className="px-6 py-4">
                       <div className="flex items-center gap-3">
                         <div className="w-10 h-10 rounded-full bg-dark-100 dark:bg-dark-800 flex items-center justify-center text-dark-500 dark:text-dark-400 shrink-0">
@@ -243,34 +426,39 @@ const Appointments = () => {
                         </div>
                         <div>
                           <span className="font-medium text-dark-900 dark:text-white block">
-                            {apt.nome || <span className="text-dark-400 italic">Sem nome</span>}
+                            {apt.client_name || <span className="text-dark-400 italic">Sem nome</span>}
                           </span>
-                          {apt.telefone && (
-                            <span className="text-xs text-dark-400">{apt.telefone}</span>
+                          {apt.client_phone && (
+                            <span className="text-xs text-dark-400">{apt.client_phone}</span>
                           )}
                         </div>
                       </div>
                     </td>
-                    <td className="px-6 py-4 text-dark-600 dark:text-dark-300">{apt.servico || '—'}</td>
+                    <td className="px-6 py-4 text-dark-600 dark:text-dark-300">{apt.service || '—'}</td>
                     <td className="px-6 py-4 text-dark-600 dark:text-dark-300">
                       <div className="flex items-center gap-2">
                         <CalendarIcon size={16} className="text-dark-400" />
-                        {formatDate(apt.data)}
+                        {formatDate(apt.date)}
                       </div>
                     </td>
                     <td className="px-6 py-4 text-dark-600 dark:text-dark-300">
                       <div className="flex items-center gap-2">
                         <Clock size={16} className="text-dark-400" />
-                        {formatTime(apt.hora)}
+                        {formatTime(apt.time)}
                       </div>
                     </td>
                     <td className="px-6 py-4">
                       <StatusBadge status={apt.status} />
                     </td>
                     <td className="px-6 py-4 text-right">
-                      <button className="text-primary-600 dark:text-primary-400 hover:text-primary-700 dark:hover:text-primary-300 text-sm font-medium opacity-0 group-hover:opacity-100 transition-opacity">
-                        Editar
-                      </button>
+                      <div className="flex justify-end">
+                        <button 
+                          onClick={(e) => { e.stopPropagation(); setActionApt(apt); }}
+                          className="text-dark-400 hover:text-dark-900 dark:hover:text-white transition-colors p-2 rounded-lg hover:bg-dark-100 dark:hover:bg-dark-800"
+                        >
+                          <MoreVertical size={18} />
+                        </button>
+                      </div>
                     </td>
                   </tr>
                 ))
@@ -282,11 +470,201 @@ const Appointments = () => {
 
       {/* ===== FAB — Novo Agendamento (mobile) ===== */}
       <button
+        onClick={() => handleOpenModal()}
         className="md:hidden fixed bottom-6 right-6 z-40 w-14 h-14 bg-primary-600 hover:bg-primary-700 text-white rounded-full shadow-xl shadow-primary-500/40 flex items-center justify-center transition-all active:scale-90"
         aria-label="Novo agendamento"
       >
         <Plus size={24} />
       </button>
+
+      {/* Action Modal */}
+      <ActionModal 
+        isOpen={!!actionApt}
+        apt={actionApt}
+        onClose={() => setActionApt(null)}
+        onEdit={(apt) => handleOpenModal(apt)}
+        onDelete={(apt) => { setDeletingApt(apt); setIsDeleteModalOpen(true); }}
+        onStatusChange={handleStatusChange}
+      />
+
+      {/* Toast */}
+      {toast && createPortal(
+        <div className={`fixed bottom-4 right-4 md:bottom-8 md:right-8 z-[10000] flex items-center gap-3 px-5 py-3.5 rounded-2xl shadow-2xl text-white animate-fade-in ${toast.type === 'error' ? 'bg-red-600 shadow-red-500/20' : 'bg-emerald-600 shadow-emerald-500/20'}`}>
+          {toast.type === 'error' ? <AlertCircle size={20} /> : <Check size={20} />}
+          <span className="text-sm font-semibold">{toast.message}</span>
+        </div>,
+        document.body
+      )}
+
+      {/* Modal Criar/Editar (Portal) */}
+      {isModalOpen && createPortal(
+        <div 
+          className="fixed inset-0 z-[9999] flex items-center justify-center p-4 sm:p-6 bg-black/60 backdrop-blur-sm animate-fade-in"
+          onClick={() => setIsModalOpen(false)}
+        >
+          <div 
+            className="bg-white dark:bg-dark-900 rounded-2xl w-full max-w-xl shadow-2xl flex flex-col max-h-[90vh] overflow-hidden"
+            onClick={e => e.stopPropagation()}
+          >
+            <div className="flex items-center justify-between p-5 sm:p-6 border-b border-dark-200 dark:border-dark-800 shrink-0">
+              <h2 className="text-xl font-bold text-dark-900 dark:text-white">
+                {editingApt ? 'Editar Agendamento' : 'Novo Agendamento'}
+              </h2>
+              <button onClick={() => setIsModalOpen(false)} className="p-2 text-dark-400 hover:text-dark-900 dark:hover:text-white hover:bg-dark-100 dark:hover:bg-dark-800 rounded-xl transition-colors">
+                <X size={20} />
+              </button>
+            </div>
+            
+            <form id="apt-form" onSubmit={handleSave} className="flex-1 overflow-y-auto p-5 sm:p-6 space-y-5 custom-scrollbar">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
+                <div className="md:col-span-2">
+                  <label className="block text-sm font-semibold text-dark-700 dark:text-dark-300 mb-1.5">Cliente (Nome)</label>
+                  <input 
+                    type="text" 
+                    required
+                    value={formData.client_name} 
+                    onChange={(e) => setFormData({...formData, client_name: e.target.value})} 
+                    placeholder="Ex: João Silva"
+                    className="w-full bg-dark-50 dark:bg-dark-800 border border-dark-200 dark:border-dark-700 rounded-xl px-4 py-3 text-sm focus:ring-2 focus:ring-primary-500 text-dark-900 dark:text-white outline-none"
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-semibold text-dark-700 dark:text-dark-300 mb-1.5">Telefone <span className="text-red-500">*</span></label>
+                  <input 
+                    type="text" 
+                    required
+                    value={formData.client_phone} 
+                    onChange={(e) => setFormData({...formData, client_phone: e.target.value})} 
+                    placeholder="(00) 00000-0000"
+                    className="w-full bg-dark-50 dark:bg-dark-800 border border-dark-200 dark:border-dark-700 rounded-xl px-4 py-3 text-sm focus:ring-2 focus:ring-primary-500 text-dark-900 dark:text-white outline-none"
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-semibold text-dark-700 dark:text-dark-300 mb-1.5">Serviço</label>
+                  <input 
+                    type="text" 
+                    required
+                    value={formData.service} 
+                    onChange={(e) => setFormData({...formData, service: e.target.value})} 
+                    placeholder="Ex: Corte Cabelo + Barba"
+                    className="w-full bg-dark-50 dark:bg-dark-800 border border-dark-200 dark:border-dark-700 rounded-xl px-4 py-3 text-sm focus:ring-2 focus:ring-primary-500 text-dark-900 dark:text-white outline-none"
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-semibold text-dark-700 dark:text-dark-300 mb-1.5">Data <span className="text-red-500">*</span></label>
+                  <input 
+                    type="date" 
+                    required
+                    value={formData.date} 
+                    onChange={(e) => setFormData({...formData, date: e.target.value})} 
+                    className="w-full bg-dark-50 dark:bg-dark-800 border border-dark-200 dark:border-dark-700 rounded-xl px-4 py-3 text-sm focus:ring-2 focus:ring-primary-500 text-dark-900 dark:text-white outline-none"
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-semibold text-dark-700 dark:text-dark-300 mb-1.5">Horário <span className="text-red-500">*</span></label>
+                  <input 
+                    type="time" 
+                    required
+                    value={formData.time} 
+                    onChange={(e) => setFormData({...formData, time: e.target.value})} 
+                    className="w-full bg-dark-50 dark:bg-dark-800 border border-dark-200 dark:border-dark-700 rounded-xl px-4 py-3 text-sm focus:ring-2 focus:ring-primary-500 text-dark-900 dark:text-white outline-none"
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-semibold text-dark-700 dark:text-dark-300 mb-1.5">Barbeiro</label>
+                  <input 
+                    type="text" 
+                    value={formData.barber} 
+                    onChange={(e) => setFormData({...formData, barber: e.target.value})} 
+                    placeholder="Nome do profissional"
+                    className="w-full bg-dark-50 dark:bg-dark-800 border border-dark-200 dark:border-dark-700 rounded-xl px-4 py-3 text-sm focus:ring-2 focus:ring-primary-500 text-dark-900 dark:text-white outline-none"
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-semibold text-dark-700 dark:text-dark-300 mb-1.5">Status</label>
+                  <select 
+                    value={formData.status} 
+                    onChange={(e) => setFormData({...formData, status: e.target.value})}
+                    className="w-full bg-dark-50 dark:bg-dark-800 border border-dark-200 dark:border-dark-700 rounded-xl px-4 py-3 text-sm focus:ring-2 focus:ring-primary-500 text-dark-900 dark:text-white outline-none"
+                  >
+                    <option value="pendente">Pendente</option>
+                    <option value="confirmado">Confirmado</option>
+                    <option value="concluido">Concluído</option>
+                    <option value="cancelado">Cancelado</option>
+                  </select>
+                </div>
+                <div className="md:col-span-2">
+                  <label className="block text-sm font-semibold text-dark-700 dark:text-dark-300 mb-1.5">Observação</label>
+                  <textarea 
+                    rows="3"
+                    value={formData.notes} 
+                    onChange={(e) => setFormData({...formData, notes: e.target.value})} 
+                    placeholder="Ex: Primeira vez, prefere fade..."
+                    className="w-full bg-dark-50 dark:bg-dark-800 border border-dark-200 dark:border-dark-700 rounded-xl px-4 py-3 text-sm focus:ring-2 focus:ring-primary-500 text-dark-900 dark:text-white outline-none resize-none"
+                  />
+                </div>
+              </div>
+            </form>
+            
+            <div className="p-5 sm:p-6 border-t border-dark-200 dark:border-dark-800 shrink-0 flex justify-end gap-3 bg-dark-50/30 dark:bg-dark-900/30">
+              <button 
+                type="button" 
+                onClick={() => setIsModalOpen(false)}
+                className="px-5 py-2.5 text-sm font-semibold text-dark-600 dark:text-dark-300 hover:bg-dark-100 dark:hover:bg-dark-800 rounded-xl transition-colors"
+              >
+                Cancelar
+              </button>
+              <button 
+                type="submit" 
+                form="apt-form"
+                disabled={isSubmitting}
+                className="px-5 py-2.5 text-sm font-semibold bg-primary-600 hover:bg-primary-700 text-white rounded-xl transition-colors shadow-lg shadow-primary-500/30 disabled:opacity-50 flex items-center gap-2"
+              >
+                {isSubmitting && <RefreshCw size={16} className="animate-spin" />}
+                Salvar
+              </button>
+            </div>
+          </div>
+        </div>,
+        document.body
+      )}
+
+      {/* Modal Excluir (Portal) */}
+      {isDeleteModalOpen && deletingApt && createPortal(
+        <div 
+          className="fixed inset-0 z-[9999] flex items-center justify-center p-4 sm:p-6 bg-black/60 backdrop-blur-sm animate-fade-in"
+          onClick={() => setIsDeleteModalOpen(false)}
+        >
+          <div 
+            className="bg-white dark:bg-dark-900 rounded-2xl w-full max-w-sm shadow-2xl p-6 sm:p-8 text-center"
+            onClick={e => e.stopPropagation()}
+          >
+            <div className="w-20 h-20 bg-red-100 dark:bg-red-500/20 text-red-600 dark:text-red-500 rounded-full flex items-center justify-center mx-auto mb-5">
+              <AlertCircle size={40} />
+            </div>
+            <h3 className="text-xl font-bold text-dark-900 dark:text-white mb-2">Excluir Agendamento?</h3>
+            <p className="text-sm md:text-base text-dark-500 dark:text-dark-400 mb-8 leading-relaxed">
+              Tem certeza que deseja excluir o agendamento de <strong>{deletingApt.client_name}</strong>? Esta ação não pode ser desfeita.
+            </p>
+            <div className="flex gap-3">
+              <button 
+                onClick={() => setIsDeleteModalOpen(false)}
+                className="flex-1 py-3 bg-dark-100 dark:bg-dark-800 text-dark-900 dark:text-white font-semibold rounded-xl hover:bg-dark-200 dark:hover:bg-dark-700 transition-colors"
+              >
+                Cancelar
+              </button>
+              <button 
+                onClick={handleDelete}
+                disabled={isSubmitting}
+                className="flex-1 py-3 bg-red-600 text-white font-semibold rounded-xl hover:bg-red-700 transition-colors flex items-center justify-center gap-2 disabled:opacity-50 shadow-lg shadow-red-500/30"
+              >
+                {isSubmitting ? <RefreshCw size={18} className="animate-spin" /> : 'Excluir'}
+              </button>
+            </div>
+          </div>
+        </div>,
+        document.body
+      )}
     </div>
   );
 };
