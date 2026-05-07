@@ -13,11 +13,17 @@ const clientsRouter = require('./routes/clients');
 const appointmentsRouter = require('./routes/appointments');
 const metricsRouter = require('./routes/metrics');
 const messagesRouter = require('./routes/messages');
+const authRouter = require('./routes/auth');
+const notificationsRouter = require('./routes/notifications');
+const profileRouter = require('./routes/profile');
 
 app.use('/api/clients', clientsRouter);
 app.use('/api/appointments', appointmentsRouter);
 app.use('/api/metrics', metricsRouter);
 app.use('/api/messages', messagesRouter);
+app.use('/api/auth', authRouter);
+app.use('/api/notifications', notificationsRouter);
+app.use('/api/profile', profileRouter);
 
 // Health check
 app.get('/', (req, res) => {
