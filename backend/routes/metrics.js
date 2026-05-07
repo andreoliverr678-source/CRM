@@ -8,7 +8,7 @@ router.get('/', async (req, res) => {
     // Executa todas as queries em paralelo para melhor performance
     const [clientesRes, agendamentosHojeRes, conversasAtivasRes] = await Promise.all([
       // Total de clientes cadastrados
-      supabase.from('clients').select('*', { count: 'exact', head: true }),
+      supabase.from('clientes').select('*', { count: 'exact', head: true }),
 
       // Agendamentos de hoje
       supabase

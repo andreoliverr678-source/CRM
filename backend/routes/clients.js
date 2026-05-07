@@ -2,20 +2,40 @@ const express = require('express');
 const router = express.Router();
 const supabase = require('../db');
 
+// Funções auxiliares para mapear os dados (Banco em PT-BR <-> Frontend em EN)
+const mapToFrontend = (c) => ({
+  id: c.id,
+  name: c.nome,
+  phone: c.telefone,
+  notes: c.observacoes,
+  status: c.status,
+  created_at: c.criado_em,
+  updated_at: c.criado_em, // Fallback caso não haja atualizado_em
+});
+
+const mapToBackend = (c) => {
+  const data = {};
+  if (c.name !== undefined) data.nome = c.name;
+  if (c.phone !== undefined) data.telefone = c.phone;
+  if (c.notes !== undefined) data.observacoes = c.notes;
+  if (c.status !== undefined) data.status = c.status;
+  return data;
+};
+
 // GET /api/clients — busca todos os clientes
 router.get('/', async (req, res) => {
   try {
     const { data, error } = await supabase
-      .from('clients')
+      .from('clientes')
       .select('*')
-      .order('created_at', { ascending: false });
+      .order('criado_em', { ascending: false });
 
     if (error) {
       console.error('[clients] Erro ao buscar clientes:', error.message);
       return res.status(500).json({ error: 'Erro ao buscar clientes', details: error.message });
     }
 
-    res.json(data);
+    res.json(data.map(mapToFrontend));
   } catch (err) {
     console.error('[clients] Erro inesperado:', err.message);
     res.status(500).json({ error: 'Erro interno do servidor' });
@@ -26,7 +46,7 @@ router.get('/', async (req, res) => {
 router.get('/:id', async (req, res) => {
   try {
     const { data, error } = await supabase
-      .from('clients')
+      .from('clientes')
       .select('*')
       .eq('id', req.params.id)
       .single();
@@ -38,7 +58,7 @@ router.get('/:id', async (req, res) => {
 
     if (!data) return res.status(404).json({ error: 'Cliente não encontrado' });
 
-    res.json(data);
+    res.json(mapToFrontend(data));
   } catch (err) {
     console.error('[clients] Erro inesperado:', err.message);
     res.status(500).json({ error: 'Erro interno do servidor' });
@@ -48,15 +68,15 @@ router.get('/:id', async (req, res) => {
 // POST /api/clients — cria um novo cliente
 router.post('/', async (req, res) => {
   try {
-    const { name, phone, status, notes } = req.body;
+    const backendData = mapToBackend(req.body);
 
-    if (!phone) {
+    if (!backendData.telefone) {
       return res.status(400).json({ error: 'O campo "phone" é obrigatório' });
     }
 
     const { data, error } = await supabase
-      .from('clients')
-      .insert([{ name, phone, status, notes }])
+      .from('clientes')
+      .insert([backendData])
       .select()
       .single();
 
@@ -65,7 +85,7 @@ router.post('/', async (req, res) => {
       return res.status(500).json({ error: 'Erro ao criar cliente', details: error.message });
     }
 
-    res.status(201).json(data);
+    res.status(201).json(mapToFrontend(data));
   } catch (err) {
     console.error('[clients] Erro inesperado:', err.message);
     res.status(500).json({ error: 'Erro interno do servidor' });
@@ -75,11 +95,11 @@ router.post('/', async (req, res) => {
 // PUT /api/clients/:id — atualiza um cliente
 router.put('/:id', async (req, res) => {
   try {
-    const { name, phone, status, notes } = req.body;
+    const backendData = mapToBackend(req.body);
 
     const { data, error } = await supabase
-      .from('clients')
-      .update({ name, phone, status, notes, updated_at: new Date().toISOString() })
+      .from('clientes')
+      .update(backendData)
       .eq('id', req.params.id)
       .select()
       .single();
@@ -89,7 +109,7 @@ router.put('/:id', async (req, res) => {
       return res.status(500).json({ error: 'Erro ao atualizar cliente', details: error.message });
     }
 
-    res.json(data);
+    res.json(mapToFrontend(data));
   } catch (err) {
     console.error('[clients] Erro inesperado:', err.message);
     res.status(500).json({ error: 'Erro interno do servidor' });
@@ -100,7 +120,7 @@ router.put('/:id', async (req, res) => {
 router.delete('/:id', async (req, res) => {
   try {
     const { error } = await supabase
-      .from('clients')
+      .from('clientes')
       .delete()
       .eq('id', req.params.id);
 
