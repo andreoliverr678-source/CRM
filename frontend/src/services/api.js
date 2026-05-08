@@ -8,7 +8,7 @@ const api = axios.create({
   headers: { 'Content-Type': 'application/json' },
 });
 
-// ── Interceptor REQUEST: injeta Bearer token ──────────────────────
+// ── Interceptor REQUEST: injeta Bearer token ──────────────────────────────────
 api.interceptors.request.use(
   (config) => {
     const token = localStorage.getItem('barber_crm_token');
@@ -20,14 +20,13 @@ api.interceptors.request.use(
   (error) => Promise.reject(error)
 );
 
-// ── Interceptor RESPONSE: logout automático em 401 ───────────────
+// ── Interceptor RESPONSE: logout automático em 401 ────────────────────────────
 api.interceptors.response.use(
   (response) => response,
   (error) => {
     const msg = error.response?.data?.error || error.message;
     console.error(`[API Error] ${error.config?.method?.toUpperCase()} ${error.config?.url}: ${msg}`);
 
-    // Token expirado ou inválido — limpa sessão e redireciona
     if (error.response?.status === 401 && !error.config?.url?.includes('/auth/login')) {
       localStorage.removeItem('barber_crm_token');
       window.location.href = '/login';
@@ -36,35 +35,71 @@ api.interceptors.response.use(
   }
 );
 
-// ── Rotas existentes ──────────────────────────────────────────────
+// ── Dashboard ─────────────────────────────────────────────────────────────────
+export const fetchDashboard    = () => api.get('/dashboard').then((r) => r.data);
+
+// ── Financial ─────────────────────────────────────────────────────────────────
+/**
+ * Retorna métricas de faturamento: diário, semanal, mensal, ticket médio, top serviço.
+ */
+export const fetchRevenue      = () => api.get('/financial/revenue').then((r) => r.data);
+
+/**
+ * Lista registros financeiros.
+ * @param {Object} params - { status, payment_method, period, page, limit }
+ */
+export const fetchFinancial    = (params = {}) => api.get('/financial', { params }).then((r) => r.data);
+
+/**
+ * Cria ou atualiza um registro financeiro.
+ * @param {Object} data - { appointment_id, client_id, service, amount, payment_method, status }
+ */
+export const createFinancial   = (data) => api.post('/financial', data).then((r) => r.data);
+
+/**
+ * Atualiza um registro financeiro existente (ex: definir método de pagamento).
+ * @param {string} id - UUID do registro
+ * @param {Object} data - { payment_method, status, amount }
+ */
+export const updateFinancial   = (id, data) => api.put(`/financial/${id}`, data).then((r) => r.data);
+
+// ── Services ──────────────────────────────────────────────────────────────────
+export const fetchServices     = () => api.get('/services').then((r) => r.data);
+export const createService     = (data) => api.post('/services', data).then((r) => r.data);
+export const updateService     = (id, data) => api.put(`/services/${id}`, data).then((r) => r.data);
+export const deleteService     = (id) => api.delete(`/services/${id}`).then((r) => r.data);
+
+// ── Clientes ──────────────────────────────────────────────────────────────────
 export const fetchMetrics      = () => api.get('/metrics').then((r) => r.data);
 export const fetchClients      = () => api.get('/clients').then((r) => r.data);
 export const fetchClient       = (id) => api.get(`/clients/${id}`).then((r) => r.data);
-export const fetchAppointments = () => api.get('/appointments').then((r) => r.data);
-export const fetchMessages     = () => api.get('/messages').then((r) => r.data);
-export const fetchMessagesByPhone = (phone) => api.get(`/messages/${phone}`).then((r) => r.data);
-export const fetchDashboard    = () => api.get('/dashboard').then((r) => r.data);
-
 export const createClient      = (data) => api.post('/clients', data).then((r) => r.data);
 export const updateClient      = (id, data) => api.put(`/clients/${id}`, data).then((r) => r.data);
 export const deleteClient      = (id) => api.delete(`/clients/${id}`).then((r) => r.data);
+
+// ── Agendamentos ──────────────────────────────────────────────────────────────
+export const fetchAppointments = () => api.get('/appointments').then((r) => r.data);
 export const createAppointment = (data) => api.post('/appointments', data).then((r) => r.data);
 export const updateAppointment = (id, data) => api.put(`/appointments/${id}`, data).then((r) => r.data);
 export const deleteAppointment = (id) => api.delete(`/appointments/${id}`).then((r) => r.data);
-export const sendChatMessage   = (data) => api.post('/messages/send', data).then((r) => r.data);
 
-// ── Auth ──────────────────────────────────────────────────────────
+// ── Mensagens ─────────────────────────────────────────────────────────────────
+export const fetchMessages        = () => api.get('/messages').then((r) => r.data);
+export const fetchMessagesByPhone = (phone) => api.get(`/messages/${phone}`).then((r) => r.data);
+export const sendChatMessage      = (data) => api.post('/messages/send', data).then((r) => r.data);
+
+// ── Auth ──────────────────────────────────────────────────────────────────────
 export const loginApi     = (email, password) => api.post('/auth/login', { email, password });
 export const fetchMe      = ()                 => api.get('/auth/me');
 
-// ── Profile ───────────────────────────────────────────────────────
+// ── Profile ───────────────────────────────────────────────────────────────────
 export const fetchProfile   = ()     => api.get('/profile');
 export const updateProfile  = (data) => api.put('/profile', data);
 export const changePassword = (data) => api.put('/profile/password', data);
 
-// ── Notifications ─────────────────────────────────────────────────
-export const fetchNotifications     = ()    => api.get('/notifications');
-export const markNotificationRead   = (id)  => api.put(`/notifications/${id}/read`);
-export const markAllNotificationsRead = ()  => api.put('/notifications/read-all');
+// ── Notifications ─────────────────────────────────────────────────────────────
+export const fetchNotifications       = ()   => api.get('/notifications');
+export const markNotificationRead     = (id) => api.put(`/notifications/${id}/read`);
+export const markAllNotificationsRead = ()   => api.put('/notifications/read-all');
 
 export default api;

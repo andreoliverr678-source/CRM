@@ -1,63 +1,79 @@
 const express = require('express');
 const router = express.Router();
 const supabase = require('../db');
-const { startOfWeek, endOfWeek, format, parseISO, isValid, getDay } = require('date-fns');
+const { startOfWeek, endOfWeek, parseISO, isValid, getDay } = require('date-fns');
 
 // GET /api/dashboard
 router.get('/', async (req, res) => {
   try {
-    const today = new Date().toISOString().split('T')[0];
-    
-    // Obter data do início e fim do mês
     const now = new Date();
-    const firstDayOfMonth = new Date(now.getFullYear(), now.getMonth(), 1).toISOString().split('T')[0];
-    const lastDayOfMonth = new Date(now.getFullYear(), now.getMonth() + 1, 0).toISOString().split('T')[0];
-    
-    // Início e fim da semana
-    const startWeek = startOfWeek(now, { weekStartsOn: 1 }).toISOString().split('T')[0]; // Segunda
-    const endWeek = endOfWeek(now, { weekStartsOn: 1 }).toISOString().split('T')[0]; // Domingo
+    const today = now.toISOString().split('T')[0];
 
-    // 1. Total Clientes
+    // ── Períodos ──────────────────────────────────────────────────────────────
+    const firstDayOfMonth = new Date(now.getFullYear(), now.getMonth(), 1).toISOString();
+    const firstDayNextMonth = new Date(now.getFullYear(), now.getMonth() + 1, 1).toISOString();
+    const startWeek = startOfWeek(now, { weekStartsOn: 1 }).toISOString().split('T')[0];
+    const endWeek   = endOfWeek(now,   { weekStartsOn: 1 }).toISOString().split('T')[0];
+
+    // ── 1. Total de Clientes ──────────────────────────────────────────────────
     const { count: totalClients } = await supabase
       .from('clientes')
       .select('*', { count: 'exact', head: true });
 
-    // 2. Agendamentos Hoje
+    // ── 2. Agendamentos Hoje ──────────────────────────────────────────────────
     const { count: appointmentsToday } = await supabase
       .from('agendamentos')
       .select('*', { count: 'exact', head: true })
       .eq('data', today);
 
-    // 3. Conversas Ativas (últimas 24h)
+    // ── 3. Conversas Ativas (últimas 24h) ────────────────────────────────────
     const { data: conversas } = await supabase
       .from('conversas')
       .select('telefone')
       .gte('criado_em', new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString());
     const activeConversations = conversas ? new Set(conversas.map(c => c.telefone)).size : 0;
 
-    // 4. Faturamento Mensal (estimado: R$ 50 por agendamento concluído no mês)
-    const { data: monthAppointments } = await supabase
-      .from('agendamentos')
-      .select('id, servico, hora, status, data')
-      .gte('data', firstDayOfMonth)
-      .lte('data', lastDayOfMonth);
-    
-    // Filtra concluídos ou confirmados do mês para faturamento (ex: R$ 50 medio)
-    const completedMonth = (monthAppointments || []).filter(a => a.status === 'concluido' || a.status === 'confirmado');
-    const revenue = completedMonth.length * 50; // Estimativa de R$ 50 por corte
+    // ── 4. Faturamento real (financial_records) ───────────────────────────────
+    const { data: monthFinancial, error: finErr } = await supabase
+      .from('financial_records')
+      .select('amount, service, payment_method, created_at')
+      .eq('status', 'pago')
+      .gte('created_at', firstDayOfMonth)
+      .lt('created_at', firstDayNextMonth);
 
-    // 5. Serviços populares
+    if (finErr) console.error('[dashboard] financial_records error:', finErr.message);
+
+    const revenue = (monthFinancial || []).reduce((acc, r) => acc + Number(r.amount), 0);
+    const avgTicket = monthFinancial && monthFinancial.length > 0
+      ? revenue / monthFinancial.length
+      : 0;
+
+    // ── 5. Serviços populares (real) ─────────────────────────────────────────
     const servicesCount = {};
-    (monthAppointments || []).forEach(a => {
-      const s = a.servico || 'Corte Padrão';
+    (monthFinancial || []).forEach(r => {
+      const s = r.service || 'Outros';
       servicesCount[s] = (servicesCount[s] || 0) + 1;
     });
+
+    // Fallback: se não há dados em financial_records, usa agendamentos
+    if (Object.keys(servicesCount).length === 0) {
+      const { data: monthAppointments } = await supabase
+        .from('agendamentos')
+        .select('servico')
+        .gte('data', now.toISOString().split('T')[0].substring(0, 7) + '-01')
+        .neq('status', 'cancelado');
+      (monthAppointments || []).forEach(a => {
+        const s = a.servico || 'Corte Padrão';
+        servicesCount[s] = (servicesCount[s] || 0) + 1;
+      });
+    }
+
     const popularServices = Object.entries(servicesCount)
       .sort((a, b) => b[1] - a[1])
       .slice(0, 3)
       .map(([name, count]) => ({ name, count }));
 
-    // 6. Atendimentos Semanais (Gráfico)
+    // ── 6. Gráfico semanal (agendamentos concluídos) ──────────────────────────
     const { data: weekAppointments } = await supabase
       .from('agendamentos')
       .select('data')
@@ -65,21 +81,16 @@ router.get('/', async (req, res) => {
       .lte('data', endWeek)
       .neq('status', 'cancelado');
 
-    const daysMap = { 'Seg': 0, 'Ter': 0, 'Qua': 0, 'Qui': 0, 'Sex': 0, 'Sáb': 0, 'Dom': 0 };
+    const daysMap  = { Seg: 0, Ter: 0, Qua: 0, Qui: 0, Sex: 0, 'Sáb': 0, Dom: 0 };
     const dayNames = ['Dom', 'Seg', 'Ter', 'Qua', 'Qui', 'Sex', 'Sáb'];
-    
     (weekAppointments || []).forEach(a => {
       const date = parseISO(a.data);
       if (isValid(date)) {
-        const dayIndex = getDay(date);
-        const dayName = dayNames[dayIndex];
-        if (daysMap[dayName] !== undefined) {
-          daysMap[dayName]++;
-        }
+        const dayName = dayNames[getDay(date)];
+        if (daysMap[dayName] !== undefined) daysMap[dayName]++;
       }
     });
-    
-    // Ordenar a semana (Segunda a Domingo)
+
     const chartData = [
       { name: 'Seg', atendimentos: daysMap['Seg'] },
       { name: 'Ter', atendimentos: daysMap['Ter'] },
@@ -90,11 +101,17 @@ router.get('/', async (req, res) => {
       { name: 'Dom', atendimentos: daysMap['Dom'] },
     ];
 
-    // 7. Horários mais usados
+    // ── 7. Horários de pico ───────────────────────────────────────────────────
+    const { data: monthAppointmentsAll } = await supabase
+      .from('agendamentos')
+      .select('hora')
+      .gte('data', now.toISOString().split('T')[0].substring(0, 7) + '-01')
+      .neq('status', 'cancelado');
+
     const timesCount = {};
-    (monthAppointments || []).forEach(a => {
+    (monthAppointmentsAll || []).forEach(a => {
       if (a.hora) {
-        const hour = a.hora.substring(0, 5); // Pega HH:mm
+        const hour = a.hora.substring(0, 5);
         timesCount[hour] = (timesCount[hour] || 0) + 1;
       }
     });
@@ -103,14 +120,16 @@ router.get('/', async (req, res) => {
       .slice(0, 4)
       .map(([time, count]) => ({ time, count }));
 
+    // ── Resposta ──────────────────────────────────────────────────────────────
     res.json({
-      totalClients: totalClients || 0,
-      appointmentsToday: appointmentsToday || 0,
+      totalClients:       totalClients || 0,
+      appointmentsToday:  appointmentsToday || 0,
       activeConversations: activeConversations || 0,
-      revenue: revenue,
+      revenue,
+      avgTicket,
       popularServices,
       popularTimes,
-      chartData
+      chartData,
     });
 
   } catch (err) {

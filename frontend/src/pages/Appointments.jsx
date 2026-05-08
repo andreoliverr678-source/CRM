@@ -2,12 +2,14 @@ import React, { useState, useMemo, useEffect } from 'react';
 import { createPortal } from 'react-dom';
 import {
   Plus, Search, Calendar as CalendarIcon, Clock, User,
-  CheckCircle, XCircle, Clock3, AlertCircle, RefreshCw, CalendarX, MoreVertical, X, Trash2, Edit2, Check, MessageCircle, Info
+  CheckCircle, XCircle, Clock3, AlertCircle, RefreshCw, CalendarX, MoreVertical, X, Trash2, Edit2, Check, MessageCircle, CreditCard
 } from 'lucide-react';
 import { format, parseISO } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import useApi from '../hooks/useApi';
-import { fetchAppointments, createAppointment, updateAppointment, deleteAppointment } from '../services/api';
+import { useSocket } from '../hooks/useSocket';
+import { toast } from '../hooks/useToast';
+import { fetchAppointments, createAppointment, updateAppointment, deleteAppointment, createFinancial } from '../services/api';
 
 // ------- Skeleton Row (desktop) -------
 const SkeletonRow = () => (
@@ -125,6 +127,57 @@ const ActionModal = ({ apt, isOpen, onClose, onEdit, onDelete, onStatusChange })
   );
 };
 
+// ------- Payment Modal -------
+const PAYMENT_METHODS = [
+  { value: 'pix',      label: 'PIX',    emoji: '📱' },
+  { value: 'dinheiro', label: 'Dinheiro', emoji: '💵' },
+  { value: 'cartao',   label: 'Cartão',  emoji: '💳' },
+];
+
+const PaymentModal = ({ apt, isOpen, onClose, onConfirm, isSubmitting }) => {
+  const [method, setMethod] = useState('');
+  useEffect(() => { if (isOpen) setMethod(''); }, [isOpen]);
+  if (!isOpen || !apt) return null;
+  return createPortal(
+    <div className="fixed inset-0 z-[9999] flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-fade-in" onClick={onClose}>
+      <div className="bg-white dark:bg-dark-900 rounded-2xl w-full max-w-sm shadow-2xl overflow-hidden" onClick={e => e.stopPropagation()}>
+        <div className="flex items-center justify-between p-5 border-b border-dark-200 dark:border-dark-800">
+          <div className="flex items-center gap-2">
+            <CreditCard size={18} className="text-emerald-500" />
+            <h3 className="font-bold text-dark-900 dark:text-white">Registrar Pagamento</h3>
+          </div>
+          <button onClick={onClose} className="p-2 text-dark-400 hover:text-dark-900 dark:hover:text-white hover:bg-dark-200 dark:hover:bg-dark-700 rounded-xl transition-colors"><X size={18} /></button>
+        </div>
+        <div className="p-5 space-y-4">
+          <p className="text-sm text-dark-500 dark:text-dark-400">Selecione o método de pagamento para <strong className="text-dark-900 dark:text-white">{apt.client_name}</strong>:</p>
+          <div className="grid grid-cols-3 gap-3">
+            {PAYMENT_METHODS.map(m => (
+              <button key={m.value} onClick={() => setMethod(m.value)}
+                className={`flex flex-col items-center gap-2 p-4 rounded-xl border-2 transition-all ${
+                  method === m.value
+                    ? 'border-emerald-500 bg-emerald-50 dark:bg-emerald-500/10'
+                    : 'border-dark-200 dark:border-dark-700 hover:border-dark-300 dark:hover:border-dark-600'
+                }`}>
+                <span className="text-2xl">{m.emoji}</span>
+                <span className="text-xs font-semibold text-dark-700 dark:text-dark-200">{m.label}</span>
+              </button>
+            ))}
+          </div>
+          <div className="flex gap-3 pt-1">
+            <button onClick={onClose} className="flex-1 py-2.5 bg-dark-100 dark:bg-dark-800 text-dark-900 dark:text-white font-semibold rounded-xl hover:bg-dark-200 dark:hover:bg-dark-700 transition-colors text-sm">Cancelar</button>
+            <button onClick={() => onConfirm(method)} disabled={!method || isSubmitting}
+              className="flex-1 py-2.5 bg-emerald-600 text-white font-semibold rounded-xl hover:bg-emerald-700 transition-colors text-sm disabled:opacity-50 flex items-center justify-center gap-2 shadow-lg shadow-emerald-500/30">
+              {isSubmitting ? <RefreshCw size={15} className="animate-spin" /> : <Check size={15} />}
+              Confirmar
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>,
+    document.body
+  );
+};
+
 // ------- Appointments Page -------
 const Appointments = () => {
   const [search, setSearch] = useState('');
@@ -138,18 +191,19 @@ const Appointments = () => {
 
   const { data: appointments, loading, error, refetch } = useApi(fetchAppointments, { interval: 30_000 });
 
-  const [toast, setToast] = useState(null);
-  const showToast = (message, type = 'success') => {
-    setToast({ message, type });
-    setTimeout(() => setToast(null), 3000);
-  };
+  // Realtime: atualiza lista ao receber eventos de agendamento
+  useSocket(['appointment_created', 'appointment_updated', 'appointment_deleted', 'appointment_concluido'], () => {
+    refetch();
+  });
 
   // Modals state
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
+  const [isPaymentModalOpen, setIsPaymentModalOpen] = useState(false);
   const [actionApt, setActionApt] = useState(null);
   const [editingApt, setEditingApt] = useState(null);
   const [deletingApt, setDeletingApt] = useState(null);
+  const [pendingConcluido, setPendingConcluido] = useState(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   const [formData, setFormData] = useState({ 
@@ -203,14 +257,43 @@ const Appointments = () => {
     setIsModalOpen(true);
   };
 
-  const handleStatusChange = async (apt, newStatus) => {
+  const handleStatusChange = (apt, newStatus) => {
+    if (newStatus === 'concluido') {
+      // Abre modal de pagamento antes de marcar como concluído
+      setPendingConcluido(apt);
+      setIsPaymentModalOpen(true);
+      return;
+    }
+    _doStatusChange(apt, newStatus);
+  };
+
+  const _doStatusChange = async (apt, newStatus, paymentMethod = null) => {
+    setIsSubmitting(true);
     try {
       await updateAppointment(apt.id, { status: newStatus });
-      showToast('Status atualizado com sucesso');
+      // Se concluído, registra/atualiza o financial_record com método de pagamento
+      if (newStatus === 'concluido' && paymentMethod) {
+        await createFinancial({
+          appointment_id: apt.id,
+          service: apt.service,
+          payment_method: paymentMethod,
+          status: 'pago',
+        });
+      }
+      toast.success(newStatus === 'concluido' ? 'Atendimento concluído e pagamento registrado!' : 'Status atualizado com sucesso.');
       refetch();
     } catch (err) {
-      showToast(err.response?.data?.error || 'Erro ao atualizar status', 'error');
+      toast.error(err.response?.data?.error || 'Erro ao atualizar status.');
+    } finally {
+      setIsSubmitting(false);
     }
+  };
+
+  const handlePaymentConfirm = async (paymentMethod) => {
+    if (!pendingConcluido || !paymentMethod) return;
+    setIsPaymentModalOpen(false);
+    await _doStatusChange(pendingConcluido, 'concluido', paymentMethod);
+    setPendingConcluido(null);
   };
 
   const handleSave = async (e) => {
@@ -239,15 +322,15 @@ const Appointments = () => {
     try {
       if (editingApt) {
         await updateAppointment(editingApt.id, formData);
-        showToast('Agendamento atualizado com sucesso');
+        toast.success('Agendamento atualizado com sucesso.');
       } else {
         await createAppointment(formData);
-        showToast('Agendamento criado com sucesso');
+        toast.success('Agendamento criado com sucesso.');
       }
       setIsModalOpen(false);
       refetch();
     } catch (err) {
-      showToast(err.response?.data?.error || 'Erro ao salvar agendamento', 'error');
+      toast.error(err.response?.data?.error || 'Erro ao salvar agendamento.');
     } finally {
       setIsSubmitting(false);
     }
@@ -258,11 +341,11 @@ const Appointments = () => {
     setIsSubmitting(true);
     try {
       await deleteAppointment(deletingApt.id);
-      showToast('Agendamento excluído com sucesso');
+      toast.success('Agendamento excluído com sucesso.');
       setIsDeleteModalOpen(false);
       refetch();
     } catch (err) {
-      showToast(err.response?.data?.error || 'Erro ao excluir agendamento', 'error');
+      toast.error(err.response?.data?.error || 'Erro ao excluir agendamento.');
     } finally {
       setIsSubmitting(false);
     }
@@ -487,14 +570,14 @@ const Appointments = () => {
         onStatusChange={handleStatusChange}
       />
 
-      {/* Toast */}
-      {toast && createPortal(
-        <div className={`fixed bottom-4 right-4 md:bottom-8 md:right-8 z-[10000] flex items-center gap-3 px-5 py-3.5 rounded-2xl shadow-2xl text-white animate-fade-in ${toast.type === 'error' ? 'bg-red-600 shadow-red-500/20' : 'bg-emerald-600 shadow-emerald-500/20'}`}>
-          {toast.type === 'error' ? <AlertCircle size={20} /> : <Check size={20} />}
-          <span className="text-sm font-semibold">{toast.message}</span>
-        </div>,
-        document.body
-      )}
+      {/* Payment Modal */}
+      <PaymentModal
+        isOpen={isPaymentModalOpen}
+        apt={pendingConcluido}
+        isSubmitting={isSubmitting}
+        onClose={() => { setIsPaymentModalOpen(false); setPendingConcluido(null); }}
+        onConfirm={handlePaymentConfirm}
+      />
 
       {/* Modal Criar/Editar (Portal) */}
       {isModalOpen && createPortal(

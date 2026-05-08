@@ -4,6 +4,7 @@ import { ThemeProvider } from './context/ThemeContext';
 import { AuthProvider } from './context/AuthContext';
 import Layout from './components/Layout';
 import ProtectedRoute from './components/ProtectedRoute';
+import ToastContainer from './components/ToastContainer';
 import Login from './pages/Login';
 import Dashboard from './pages/Dashboard';
 import Clients from './pages/Clients';
@@ -31,10 +32,12 @@ const App = () => {
             </Route>
           </Routes>
         </Router>
+
+        {/* Toast global — disponível em toda a aplicação */}
+        <ToastContainer />
       </AuthProvider>
     </ThemeProvider>
   );
 };
 
 export default App;
-
