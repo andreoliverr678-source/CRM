@@ -2593,7 +2593,7 @@
             "tableId": "agendamentos",
             "returnAll": true,
             "filterType": "string",
-            "filterString": "=status=eq.pendente&lembrete_24h_enviado=eq.false&data_hora_agendamento=gte.{{$now.setZone('America/Sao_Paulo').plus(23,'hours').toISO()}}&data_hora_agendamento=lte.{{$now.setZone('America/Sao_Paulo').plus(25,'hours').toISO()}}"
+            "filterString": "=status=eq.pendente&lembrete_24h_enviado=eq.false&data_hora_agendamento=gte.{{$now.setZone('America/Sao_Paulo').plus(12,'hours').toISO()}}&data_hora_agendamento=lte.{{$now.setZone('America/Sao_Paulo').plus(36,'hours').toISO()}}"
           },
           "alwaysOutputData": true,
           "credentials": {
@@ -2800,7 +2800,7 @@
             "tableId": "agendamentos",
             "returnAll": true,
             "filterType": "string",
-            "filterString": "=status=eq.confirmado&lembrete_2h_enviado=eq.false&data_hora_agendamento=gte.{{$now.setZone('America/Sao_Paulo').plus(1,'hours').toISO()}}&data_hora_agendamento=lte.{{$now.setZone('America/Sao_Paulo').plus(3,'hours').toISO()}}"
+            "filterString": "=status=eq.confirmado&lembrete_2h_enviado=eq.false&data_hora_agendamento=gte.{{$now.setZone('America/Sao_Paulo').minus(1,'hour').toISO()}}&data_hora_agendamento=lte.{{$now.setZone('America/Sao_Paulo').plus(4,'hours').toISO()}}"
           },
           "alwaysOutputData": true,
           "credentials": {
@@ -3415,7 +3415,7 @@
               "tableId": "agendamentos",
               "returnAll": true,
               "filterType": "string",
-              "filterString": "=status=eq.pendente&lembrete_24h_enviado=eq.false&data_hora_agendamento=gte.{{$now.setZone('America/Sao_Paulo').plus(23,'hours').toISO()}}&data_hora_agendamento=lte.{{$now.setZone('America/Sao_Paulo').plus(25,'hours').toISO()}}"
+              "filterString": "=status=eq.pendente&lembrete_24h_enviado=eq.false&data_hora_agendamento=gte.{{$now.setZone('America/Sao_Paulo').plus(12,'hours').toISO()}}&data_hora_agendamento=lte.{{$now.setZone('America/Sao_Paulo').plus(36,'hours').toISO()}}"
             },
             "id": "e6832ebb-4c1f-4666-a24e-edc022ed09c3",
             "name": "Agendamentos - Lembrete 24h",
@@ -3622,7 +3622,7 @@
               "tableId": "agendamentos",
               "returnAll": true,
               "filterType": "string",
-              "filterString": "=status=eq.pendente&lembrete_2h_enviado=eq.false&data_hora_agendamento=gte.{{$now.setZone('America/Sao_Paulo').plus(1,'hours').toISO()}}&data_hora_agendamento=lte.{{$now.setZone('America/Sao_Paulo').plus(3,'hours').toISO()}}"
+              "filterString": "=status=eq.confirmado&lembrete_2h_enviado=eq.false&data_hora_agendamento=gte.{{$now.setZone('America/Sao_Paulo').minus(1,'hour').toISO()}}&data_hora_agendamento=lte.{{$now.setZone('America/Sao_Paulo').plus(4,'hours').toISO()}}"
             },
             "id": "719dcab4-7e54-49fe-b5fa-07b2afe1f788",
             "name": "Agendamentos - Lembrete 2h",
