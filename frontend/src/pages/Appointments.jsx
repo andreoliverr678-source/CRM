@@ -181,6 +181,7 @@ const PaymentModal = ({ apt, isOpen, onClose, onConfirm, isSubmitting }) => {
 // ------- Appointments Page -------
 const Appointments = () => {
   const [search, setSearch] = useState('');
+  const [statusFilter, setStatusFilter] = useState('todos');
   const [debouncedSearch, setDebouncedSearch] = useState('');
 
   // Debounce
@@ -223,12 +224,17 @@ const Appointments = () => {
     if (!appointments) return [];
     const q = debouncedSearch.toLowerCase();
     return appointments.filter(
-      (a) =>
-        (a.client_name || '').toLowerCase().includes(q) ||
-        (a.client_phone || '').includes(q) ||
-        (a.service || '').toLowerCase().includes(q)
+      (a) => {
+        const matchesSearch = (a.client_name || '').toLowerCase().includes(q) ||
+          (a.client_phone || '').includes(q) ||
+          (a.service || '').toLowerCase().includes(q);
+        
+        const matchesStatus = statusFilter === 'todos' || a.status === statusFilter;
+        
+        return matchesSearch && matchesStatus;
+      }
     );
-  }, [appointments, debouncedSearch]);
+  }, [appointments, debouncedSearch, statusFilter]);
 
   const handleOpenModal = (apt = null) => {
     if (apt) {
@@ -395,8 +401,8 @@ const Appointments = () => {
         </div>
       )}
 
-      {/* Campo de Busca — sticky no topo em mobile */}
-      <div className="sticky top-14 md:top-20 z-20 bg-dark-50/95 dark:bg-dark-950/95 backdrop-blur-sm py-2 -mx-4 px-4 md:mx-0 md:px-0 md:static md:bg-transparent md:backdrop-blur-none md:py-0">
+      {/* Campo de Busca e Filtros */}
+      <div className="sticky top-14 md:top-20 z-20 bg-dark-50/95 dark:bg-dark-950/95 backdrop-blur-sm py-2 -mx-4 px-4 md:mx-0 md:px-0 md:static md:bg-transparent md:backdrop-blur-none md:py-0 space-y-3">
         <div className="relative">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-dark-400" size={16} />
           <input
@@ -406,6 +412,29 @@ const Appointments = () => {
             placeholder="Buscar cliente ou serviço..."
             className="w-full bg-white dark:bg-dark-800 border border-dark-200 dark:border-dark-700 rounded-xl py-3 pl-10 pr-4 text-sm focus:ring-2 focus:ring-primary-500 text-dark-900 dark:text-dark-100 placeholder-dark-400 shadow-sm transition-shadow hover:shadow-md"
           />
+        </div>
+
+        {/* Status Filter Bar */}
+        <div className="flex items-center gap-2 overflow-x-auto pb-1 no-scrollbar -mx-1 px-1">
+          {[
+            { id: 'todos', label: 'Todos', color: 'gray' },
+            { id: 'pendente', label: 'Pendentes', color: 'orange' },
+            { id: 'confirmado', label: 'Confirmados', color: 'emerald' },
+            { id: 'concluido', label: 'Concluídos', color: 'blue' },
+            { id: 'cancelado', label: 'Cancelados', color: 'red' },
+          ].map((filter) => (
+            <button
+              key={filter.id}
+              onClick={() => setStatusFilter(filter.id)}
+              className={`whitespace-nowrap px-4 py-2 rounded-xl text-xs font-semibold border transition-all active:scale-95 ${
+                statusFilter === filter.id
+                  ? 'bg-primary-600 text-white border-primary-600 shadow-md shadow-primary-500/20'
+                  : 'bg-white dark:bg-dark-800 text-dark-600 dark:text-dark-400 border-dark-200 dark:border-dark-700 hover:border-dark-300 dark:hover:border-dark-600'
+              }`}
+            >
+              {filter.label}
+            </button>
+          ))}
         </div>
       </div>
 
