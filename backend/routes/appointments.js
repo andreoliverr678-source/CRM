@@ -24,7 +24,7 @@ const mapToBackend = (a) => {
   if (a.client_name  !== undefined) data.nome        = a.client_name;
   if (a.client_phone !== undefined) data.telefone    = a.client_phone;
   if (a.service      !== undefined) data.servico     = a.service;
-  if (a.service_id   !== undefined) data.service_id  = a.service_id;
+  if (a.service_id   !== undefined) data.service_id  = a.service_id || null;
   if (a.date         !== undefined) data.data        = a.date;
   if (a.time         !== undefined) data.hora        = a.time;
   if (a.barber       !== undefined) data.barbeiro    = a.barber;

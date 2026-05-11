@@ -175,21 +175,26 @@ router.post('/', async (req, res) => {
           
           // Se não tem service_id, tenta buscar pelo nome do serviço
           if (!priceSourceId && apt.servico) {
-            const { data: srv } = await supabase
+            const { data: srv, error: srvErr } = await supabase
               .from('servicos')
               .select('id')
               .ilike('nome', apt.servico.trim())
+              .limit(1)
               .maybeSingle();
-            if (srv) priceSourceId = srv.id;
+            if (srv) {
+              priceSourceId = srv.id;
+            }
           }
 
           if (priceSourceId) {
-            const { data: srvData } = await supabase
+            const { data: srvData, error: srvPriceErr } = await supabase
               .from('servicos')
               .select('preco')
               .eq('id', priceSourceId)
               .single();
-            if (srvData) finalAmount = srvData.preco;
+            if (srvData) {
+              finalAmount = srvData.preco;
+            }
           }
         }
       } else if (service) {
@@ -198,6 +203,7 @@ router.post('/', async (req, res) => {
           .from('servicos')
           .select('preco')
           .ilike('nome', service.trim())
+          .limit(1)
           .maybeSingle();
         if (srvData) finalAmount = srvData.preco;
       }
