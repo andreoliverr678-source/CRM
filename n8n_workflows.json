@@ -43,7 +43,7 @@
                 {
                   "id": "14a713c2-2a43-46c0-b5f4-ad45ea9cba76",
                   "name": "telefone",
-                  "value": "={{ $json.body.data.key.remoteJid.split('@')[0] }}",
+                  "value": "={{ $json.body.data.key.remoteJid.split('@')[0].trim() }}",
                   "type": "string"
                 },
                 {
@@ -470,7 +470,8 @@
               "id": "HoI9l5OTgXnvzb6O",
               "name": "Supabase account"
             }
-          }
+          },
+          "continueOnFail": true
         },
         {
           "parameters": {
@@ -1386,7 +1387,8 @@
               "id": "HoI9l5OTgXnvzb6O",
               "name": "Supabase account"
             }
-          }
+          },
+          "continueOnFail": true
         },
         {
           "parameters": {
@@ -1950,17 +1952,6 @@
             ]
           ]
         },
-        "Wait": {
-          "main": [
-            [
-              {
-                "node": "Analiz Client",
-                "type": "main",
-                "index": 0
-              }
-            ]
-          ]
-        },
         "Switch": {
           "main": [
             [
@@ -2041,7 +2032,7 @@
           "main": [
             [
               {
-                "node": "Wait",
+                "node": "Regra",
                 "type": "main",
                 "index": 0
               }
