@@ -159,13 +159,53 @@ router.post('/', async (req, res) => {
       status = 'pago',
     } = req.body;
 
-    // Validações básicas
-    if (amount === undefined || amount === null) {
-      return res.status(400).json({ error: 'O campo "amount" é obrigatório.' });
+    // Se amount não foi enviado, tenta buscar pelo appointment_id ou service
+    let finalAmount = amount;
+    if (finalAmount === undefined || finalAmount === null) {
+      if (appointment_id) {
+        // Busca o preco do servico vinculado ao agendamento
+        const { data: apt, error: aptErr } = await supabase
+          .from('agendamentos')
+          .select('service_id, servico')
+          .eq('id', appointment_id)
+          .single();
+        
+        if (!aptErr && apt) {
+          let priceSourceId = apt.service_id;
+          
+          // Se não tem service_id, tenta buscar pelo nome do serviço
+          if (!priceSourceId && apt.servico) {
+            const { data: srv } = await supabase
+              .from('servicos')
+              .select('id')
+              .ilike('nome', apt.servico.trim())
+              .maybeSingle();
+            if (srv) priceSourceId = srv.id;
+          }
+
+          if (priceSourceId) {
+            const { data: srvData } = await supabase
+              .from('servicos')
+              .select('preco')
+              .eq('id', priceSourceId)
+              .single();
+            if (srvData) finalAmount = srvData.preco;
+          }
+        }
+      } else if (service) {
+        // Busca o preco pelo nome do serviço
+        const { data: srvData } = await supabase
+          .from('servicos')
+          .select('preco')
+          .ilike('nome', service.trim())
+          .maybeSingle();
+        if (srvData) finalAmount = srvData.preco;
+      }
     }
-    const validMethods = ['pix', 'dinheiro', 'cartao'];
-    if (payment_method && !validMethods.includes(payment_method)) {
-      return res.status(400).json({ error: `payment_method deve ser: ${validMethods.join(', ')}` });
+
+    // Se ainda assim não tiver amount, retorna erro ou assume 0 (melhor retornar erro se real values são necessários)
+    if (finalAmount === undefined || finalAmount === null) {
+      return res.status(400).json({ error: 'O campo "amount" é obrigatório e não pôde ser determinado automaticamente.' });
     }
 
     // Se há appointment_id, tenta atualizar registro existente
@@ -179,7 +219,7 @@ router.post('/', async (req, res) => {
       if (existing) {
         const { data, error } = await supabase
           .from('financial_records')
-          .update({ service, amount: Number(amount), payment_method, status })
+          .update({ service, amount: Number(finalAmount), payment_method, status })
           .eq('id', existing.id)
           .select()
           .single();
@@ -201,7 +241,7 @@ router.post('/', async (req, res) => {
         appointment_id: appointment_id || null,
         client_id:      client_id || null,
         service,
-        amount:         Number(amount),
+        amount:         Number(finalAmount),
         payment_method: payment_method || null,
         status,
       }])

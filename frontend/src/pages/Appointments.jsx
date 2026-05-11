@@ -9,7 +9,7 @@ import { ptBR } from 'date-fns/locale';
 import useApi from '../hooks/useApi';
 import { useSocket } from '../hooks/useSocket';
 import { toast } from '../hooks/useToast';
-import { fetchAppointments, createAppointment, updateAppointment, deleteAppointment, createFinancial } from '../services/api';
+import { fetchAppointments, createAppointment, updateAppointment, deleteAppointment, createFinancial, fetchServices } from '../services/api';
 
 // ------- Skeleton Row (desktop) -------
 const SkeletonRow = () => (
@@ -190,6 +190,7 @@ const Appointments = () => {
   }, [search]);
 
   const { data: appointments, loading, error, refetch } = useApi(fetchAppointments, { interval: 30_000 });
+  const { data: services } = useApi(fetchServices);
 
   // Realtime: atualiza lista ao receber eventos de agendamento
   useSocket(['appointment_created', 'appointment_updated', 'appointment_deleted', 'appointment_concluido'], () => {
@@ -210,6 +211,7 @@ const Appointments = () => {
     client_name: '', 
     client_phone: '', 
     service: '', 
+    service_id: '',
     date: '', 
     time: '', 
     barber: '', 
@@ -235,6 +237,7 @@ const Appointments = () => {
         client_name: apt.client_name || '', 
         client_phone: apt.client_phone || '', 
         service: apt.service || '', 
+        service_id: apt.service_id || '',
         date: apt.date || '', 
         time: apt.time?.substring(0, 5) || '', 
         barber: apt.barber || '', 
@@ -247,6 +250,7 @@ const Appointments = () => {
         client_name: '', 
         client_phone: '', 
         service: '', 
+        service_id: '',
         date: '', 
         time: '', 
         barber: '', 
@@ -623,15 +627,21 @@ const Appointments = () => {
                   />
                 </div>
                 <div>
-                  <label className="block text-sm font-semibold text-dark-700 dark:text-dark-300 mb-1.5">Serviço</label>
-                  <input 
-                    type="text" 
+                  <label className="block text-sm font-semibold text-dark-700 dark:text-dark-300 mb-1.5">Serviço <span className="text-red-500">*</span></label>
+                  <select 
                     required
-                    value={formData.service} 
-                    onChange={(e) => setFormData({...formData, service: e.target.value})} 
-                    placeholder="Ex: Corte Cabelo + Barba"
+                    value={formData.service_id} 
+                    onChange={(e) => {
+                      const srv = services?.find(s => s.id === e.target.value);
+                      setFormData({...formData, service_id: e.target.value, service: srv?.nome || ''});
+                    }}
                     className="w-full bg-dark-50 dark:bg-dark-800 border border-dark-200 dark:border-dark-700 rounded-xl px-4 py-3 text-sm focus:ring-2 focus:ring-primary-500 text-dark-900 dark:text-white outline-none"
-                  />
+                  >
+                    <option value="">Selecione um serviço</option>
+                    {services?.map(s => (
+                      <option key={s.id} value={s.id}>{s.nome} - R$ {s.preco}</option>
+                    ))}
+                  </select>
                 </div>
                 <div>
                   <label className="block text-sm font-semibold text-dark-700 dark:text-dark-300 mb-1.5">Data <span className="text-red-500">*</span></label>
