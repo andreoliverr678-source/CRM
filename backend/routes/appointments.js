@@ -4,18 +4,20 @@ const supabase = require('../db');
 
 // ── Adapter (Banco PT-BR <-> Frontend EN) ────────────────────────────────────
 const mapToFrontend = (a) => ({
-  id:           a.id,
-  client_id:    a.cliente_id || null,
-  client_name:  a.nome       || '',
-  client_phone: a.telefone   || '',
-  service:      a.servico,
-  service_id:   a.service_id || null,
-  date:         a.data,
-  time:         a.hora,
-  barber:       a.barbeiro   || '',
-  notes:        a.observacoes|| '',
-  status:       a.status,
-  created_at:   a.criado_em,
+  id:                  a.id,
+  client_id:           a.cliente_id || null,
+  client_name:         a.nome       || '',
+  client_phone:        a.telefone   || '',
+  service:             a.servico,
+  service_id:          a.service_id || null,
+  date:                a.data,
+  time:                a.hora,
+  datetime:            a.data_hora_agendamento || null,
+  status:              a.status,
+  confirmed:           a.confirmado || false,
+  reminder_24h_sent:   a.lembrete_24h_enviado || false,
+  reminder_2h_sent:    a.lembrete_2h_enviado  || false,
+  created_at:          a.criado_em,
 });
 
 const mapToBackend = (a) => {
@@ -27,9 +29,11 @@ const mapToBackend = (a) => {
   if (a.service_id   !== undefined) data.service_id  = a.service_id || null;
   if (a.date         !== undefined) data.data        = a.date;
   if (a.time         !== undefined) data.hora        = a.time;
-  if (a.barber       !== undefined) data.barbeiro    = a.barber;
-  if (a.notes        !== undefined) data.observacoes = a.notes;
   if (a.status       !== undefined) data.status      = a.status;
+  // Build combined datetime for reminder scheduling
+  if (a.date && a.time) {
+    data.data_hora_agendamento = `${a.date}T${a.time}:00`;
+  }
   return data;
 };
 

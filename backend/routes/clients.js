@@ -9,8 +9,12 @@ const mapToFrontend = (c) => ({
   phone: c.telefone,
   notes: c.observacoes,
   status: c.status,
+  score: c.score || 0,
+  ultima_interacao: c.ultima_interacao || null,
+  ultimo_atendimento: c.ultimo_atendimento || null,
+  reativacao_enviada: c.reativacao_enviada || false,
   created_at: c.criado_em,
-  updated_at: c.criado_em, // Fallback caso não haja atualizado_em
+  updated_at: c.ultima_interacao || c.criado_em,
 });
 
 const mapToBackend = (c) => {
