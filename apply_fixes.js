@@ -2,23 +2,36 @@ const fs = require('fs');
 const https = require('https');
 
 const token = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiI4OTkzMGRkNy00ZDFkLTRjMmItODA1YS05NGU2NmNjYjZhNDYiLCJpc3MiOiJuOG4iLCJhdWQiOiJwdWJsaWMtYXBpIiwianRpIjoiMTliNDM0NTctMzcyMS00MmZiLWJmNGQtZjFlNWI5NjRhZjEzIiwiaWF0IjoxNzc4NjkwMzA2fQ.C_mF7KLPGWIgHJRk35HhP0RFDuP-k-b6_-wYwpEADOc";
-const mainWfId = '1CUu2mqTMxbYCz9R';
 
-const newPrompt = fs.readFileSync('c:/Users/adasilva/Downloads/CRM/new_prompt.txt', 'utf8');
+const workflows = [
+    { id: '1CUu2mqTMxbYCz9R', file: 'wf_barbearia.json', modifier: (wf) => {
+        const node = wf.nodes.find(n => n.name === 'listaMensagens');
+        if (node) {
+            node.parameters.assignments.assignments[0].value = "={{ JSON.parse($('Switch1').item.json.message.last()).message }}";
+            console.log('Modified listaMensagens in Main Workflow');
+        }
+    }},
+    { id: 'ocGuVNYkRL96jrgq', file: 'wf_followup.json', modifier: (wf) => {
+        const node = wf.nodes.find(n => n.name === 'Agendamentos - Lembrete 24h');
+        if (node) {
+            let filter = node.parameters.filterString;
+            if (!filter.includes('criado_em')) {
+                node.parameters.filterString += "&criado_em=lte.{{$now.minus(1, 'hour').toISO()}}";
+                console.log('Modified Agendamentos - Lembrete 24h in Follow-up Workflow');
+            }
+        }
+    }}
+];
 
-async function updatePrompt() {
-    let content = fs.readFileSync('c:/Users/adasilva/Downloads/CRM/check_main.json', 'utf16le');
+async function updateWorkflow(id, filePath, modifier) {
+    let content = fs.readFileSync(filePath, 'utf16le');
     if (content.charCodeAt(0) === 0xFEFF) content = content.slice(1);
     let wfRaw = JSON.parse(content);
     
-    const node = wfRaw.nodes.find(n => n.name.startsWith('Andr') && n.name.includes('Atendente'));
-    if (node) {
-        node.parameters.options.systemMessage = newPrompt;
-        console.log('Prompt updated in memory');
-    } else {
-        throw new Error('Agent node not found');
-    }
+    // Apply changes
+    modifier(wfRaw);
     
+    // Pick only strictly allowed updatable properties
     const wf = {
         name: wfRaw.name,
         nodes: wfRaw.nodes,
@@ -33,7 +46,7 @@ async function updatePrompt() {
     
     const options = {
         hostname: 'n8n.andreverissimo.shop',
-        path: `/api/v1/workflows/${mainWfId}`,
+        path: `/api/v1/workflows/${id}`,
         method: 'PUT',
         headers: {
             'X-N8N-API-KEY': token,
@@ -48,10 +61,10 @@ async function updatePrompt() {
             res.on('data', (chunk) => resData += chunk);
             res.on('end', () => {
                 if (res.statusCode === 200) {
-                    console.log(`Workflow updated successfully with new prompt!`);
+                    console.log(`Workflow ${id} updated successfully!`);
                     resolve(JSON.parse(resData));
                 } else {
-                    console.log(`Failed: ${res.statusCode}`);
+                    console.log(`Failed to update ${id}: ${res.statusCode}`);
                     console.log(resData);
                     reject(resData);
                 }
@@ -63,4 +76,14 @@ async function updatePrompt() {
     });
 }
 
-updatePrompt();
+async function run() {
+    try {
+        for (const wfObj of workflows) {
+            await updateWorkflow(wfObj.id, `c:/Users/adasilva/Downloads/CRM/${wfObj.file}`, wfObj.modifier);
+        }
+    } catch (e) {
+        console.error('Error during execution:', e);
+    }
+}
+
+run();
